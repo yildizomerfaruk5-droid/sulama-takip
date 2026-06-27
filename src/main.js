@@ -2,6 +2,7 @@ import './style.css'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
+import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML } from './auth.js'
 let sayacInterval = null
 
@@ -415,18 +416,6 @@ function sayaciBaslat() {
   }, 1000)
 }
 
-
-async function uygulamaBaslat() {
-  const kullanici = await mevcutKullanici()
-  
-  if (!kullanici) {
-    document.querySelector('#app').innerHTML = loginHTML()
-    return
-  }
-
-  render()
-}
-
 window.loginYap = async () => {
   const email = document.getElementById('login-email').value
   const sifre = document.getElementById('login-sifre').value
@@ -449,4 +438,25 @@ window.cikisYap = async () => {
   document.querySelector('#app').innerHTML = loginHTML()
 }
 
-uygulamaBaslat()
+async function uygulamaBaslat() {
+  if (window.location.search.includes('viewer')) {
+    viewerRealtimeBaslat()
+    await viewerRender()
+    return
+  }
+
+  const kullanici = await mevcutKullanici()
+  
+  if (!kullanici) {
+    document.querySelector('#app').innerHTML = loginHTML()
+    return
+  }
+
+  render()
+}
+
+window.viewerRender = viewerRender
+
+window.addEventListener('DOMContentLoaded', () => {
+  uygulamaBaslat()
+})
