@@ -3,6 +3,7 @@ import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
+import { popupHTML, popupKaydet } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML } from './auth.js'
 let sayacInterval = null
 
@@ -177,9 +178,23 @@ function hatSatir(hat, durum, tamamlananlar = []) {
 }
 
 // ── GLOBAL FONKSİYONLAR ──
-window.hatTikla = (hatId) => {
-  console.log('Hat tıklandı:', hatId)
-  // Pop-up ileride eklenecek
+window.hatTikla = async (hatId) => {
+  const { data: hat } = await supabase
+    .from('hatlar')
+    .select('*')
+    .eq('id', hatId)
+    .single()
+
+  document.body.insertAdjacentHTML('beforeend', popupHTML(hat))
+}
+
+window.popupKapat = (event) => {
+  if (event && event.target.id !== 'popup-overlay') return
+  document.getElementById('popup-overlay')?.remove()
+}
+
+window.popupKaydet = (hatId) => {
+  popupKaydet(hatId, sistemDurumu?.aktif_tur_id)
 }
 
 window.sistemiBaslat = async () => {
