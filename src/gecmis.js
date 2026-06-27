@@ -1,0 +1,69 @@
+import { supabase } from './supabase.js'
+
+export async function gecmisKayitlariGetir() {
+  const { data, error } = await supabase
+    .from('sulama_kayitlari')
+    .select(`
+      *,
+      hatlar (hat_no, parsel_bilgisi, zona_id,
+        zonalar (ad)
+      ),
+      turlar (tur_no)
+    `)
+    .order('olusturma_zamani', { ascending: false })
+    .limit(50)
+
+  if (error) {
+    console.error('Geçmiş kayıt hatası:', error.message)
+    return []
+  }
+
+  return data
+}
+
+export function gecmisHTML(kayitlar) {
+  if (kayitlar.length === 0) {
+    return '<div style="color:#7f8c8d; padding:20px; text-align:center;">Henüz kayıt yok.</div>'
+  }
+
+  return kayitlar.map(k => {
+    const hat = k.hatlar
+    const tur = k.turlar
+    const tarih = new Date(k.olusturma_zamani).toLocaleString('tr-TR')
+    const sure = k.sure_dakika 
+      ? `${Math.floor(k.sure_dakika/60)}sa ${k.sure_dakika%60}dk` 
+      : '-'
+
+    const durumRenk = {
+      tamamlandi: '#26de81',
+      atlandi: '#f9ca24',
+      iptal: '#ff4757'
+    }[k.durum] || '#7f8c8d'
+
+    return `
+      <div class="kayit-satir">
+        <div class="kayit-sol">
+          <div class="kayit-hat">
+            Hat-${hat?.hat_no || '?'} 
+            <span style="color:#7f8c8d; font-size:11px;">
+              ${hat?.parsel_bilgisi || ''} — ${hat?.zonalar?.ad || ''}
+            </span>
+          </div>
+          <div class="kayit-meta">
+            ${tur?.tur_no || '?'}. Su &nbsp;•&nbsp; ${tarih} &nbsp;•&nbsp; ${sure}
+          </div>
+          ${k.ilac_gubre_notu ? `
+            <div class="kayit-not">📝 ${k.ilac_gubre_notu}</div>
+          ` : ''}
+        </div>
+        <div class="kayit-sag">
+          <span class="kayit-durum" style="color:${durumRenk}">
+            ${k.durum === 'tamamlandi' ? '✓ Tamamlandı' : 
+              k.durum === 'atlandi' ? '⏭ Atlandı' : '✕ İptal'}
+          </span>
+          <span class="kayit-islem">${k.islem_turu || 'sulama'}</span>
+        </div>
+      </div>
+    `
+  }).join('')
+}

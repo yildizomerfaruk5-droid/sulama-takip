@@ -1,6 +1,7 @@
 import './style.css'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { supabase } from './supabase.js'
+import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 let sayacInterval = null
 
 let sistemDurumu = null
@@ -48,8 +49,15 @@ async function render() {
       <div class="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
+      <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
+      <div id="gecmis-liste">Yükleniyor...</div>
     </div>
   `
+
+  gecmisKayitlariGetir().then(kayitlar => {
+    const el = document.getElementById('gecmis-liste')
+    if (el) el.innerHTML = gecmisHTML(kayitlar)
+  })
 
   // Sayacı başlat
   if (sistemDurumu?.sistem_acik) {
