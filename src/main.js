@@ -134,6 +134,9 @@ function butonlar(durum) {
       <button class="btn btn-atla" ${!acik ? 'disabled' : ''} onclick="hatAtla()">
         ⏭ Sıradaki Hat
       </button>
+      <button class="btn" ${!acik ? 'disabled' : ''} onclick="sureDegistir()" style="background:#8e44ad; color:#fff;">
+        ⏱ Süre Değiştir
+      </button>
     </div>
   `
 }
@@ -304,6 +307,42 @@ window.hatAtla = async () => {
     })
     .eq('id', 1)
 
+  render()
+}
+
+window.sureDegistir = async () => {
+  if (!sistemDurumu?.sistem_acik) return
+
+  const yeniSure = prompt('Yeni sulama süresi (dakika olarak girin):\nÖrn: 360 = 6 saat, 480 = 8 saat')
+  if (!yeniSure || isNaN(yeniSure)) return
+
+  const sure = parseInt(yeniSure)
+
+  const kapsam = confirm(
+    `Süre ${sure} dakika olarak ayarlanacak.\n\nTamam = Sadece aktif hat\nİptal = Bu andan itibaren tüm hatlar`
+  )
+
+  if (kapsam) {
+    // Sadece aktif hat
+    await supabase
+      .from('hatlar')
+      .update({ varsayilan_sure_dk: sure })
+      .eq('id', sistemDurumu.aktif_hat_id)
+  } else {
+    // Tüm hatlar - id'leri tek tek güncelle
+    const { data: tumHatlar } = await supabase
+      .from('hatlar')
+      .select('id')
+
+    for (const hat of tumHatlar) {
+      await supabase
+        .from('hatlar')
+        .update({ varsayilan_sure_dk: sure })
+        .eq('id', hat.id)
+    }
+
+    alert(`Tüm hatların süresi ${sure} dakika olarak güncellendi.`)
+  }
   render()
 }
 
