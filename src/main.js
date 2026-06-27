@@ -2,6 +2,7 @@ import './style.css'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
+import { girisYap, cikisYap, mevcutKullanici, loginHTML } from './auth.js'
 let sayacInterval = null
 
 let sistemDurumu = null
@@ -74,9 +75,23 @@ function header() {
   return `
     <div class="header">
       <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
-      <div class="meta">${new Date().toLocaleDateString('tr-TR', { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-      })}</div>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="meta">${new Date().toLocaleDateString('tr-TR', { 
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        })}</div>
+        <button 
+          onclick="cikisYap()" 
+          style="
+            padding: 6px 14px;
+            background: transparent;
+            border: 1px solid #2c3e50;
+            border-radius: 6px;
+            color: #7f8c8d;
+            font-size: 12px;
+            cursor: pointer;
+          "
+        >Çıkış</button>
+      </div>
     </div>
   `
 }
@@ -401,4 +416,37 @@ function sayaciBaslat() {
 }
 
 
-render()
+async function uygulamaBaslat() {
+  const kullanici = await mevcutKullanici()
+  
+  if (!kullanici) {
+    document.querySelector('#app').innerHTML = loginHTML()
+    return
+  }
+
+  render()
+}
+
+window.loginYap = async () => {
+  const email = document.getElementById('login-email').value
+  const sifre = document.getElementById('login-sifre').value
+  const hataEl = document.getElementById('login-hata')
+
+  hataEl.textContent = 'Giriş yapılıyor...'
+
+  const sonuc = await girisYap(email, sifre)
+
+  if (!sonuc.basarili) {
+    hataEl.textContent = 'Hatalı e-posta veya şifre.'
+    return
+  }
+
+  render()
+}
+
+window.cikisYap = async () => {
+  await cikisYap()
+  document.querySelector('#app').innerHTML = loginHTML()
+}
+
+uygulamaBaslat()

@@ -1,0 +1,120 @@
+import { supabase } from './supabase.js'
+
+export async function girisYap(email, sifre) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: sifre
+  })
+
+  if (error) return { basarili: false, hata: error.message }
+  return { basarili: true, kullanici: data.user }
+}
+
+export async function cikisYap() {
+  await supabase.auth.signOut()
+}
+
+export async function mevcutKullanici() {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user || null
+}
+
+export function loginHTML() {
+  return `
+    <div style="
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f1923;
+    ">
+      <div style="
+        background: #1a2634;
+        border: 1px solid #2c3e50;
+        border-radius: 12px;
+        padding: 40px;
+        width: 360px;
+      ">
+        <h1 style="
+          color: #5dade2;
+          font-size: 20px;
+          margin-bottom: 8px;
+          text-align: center;
+        ">🌾 SULAMA TAKİP</h1>
+        <p style="
+          color: #7f8c8d;
+          font-size: 13px;
+          text-align: center;
+          margin-bottom: 28px;
+        ">Admin Girişi</p>
+
+        <div style="margin-bottom: 16px;">
+          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+            E-posta
+          </label>
+          <input 
+            id="login-email"
+            type="email" 
+            placeholder="admin@example.com"
+            style="
+              width: 100%;
+              padding: 10px 14px;
+              background: #0f1923;
+              border: 1px solid #2c3e50;
+              border-radius: 6px;
+              color: #e0e0e0;
+              font-size: 14px;
+              outline: none;
+              box-sizing: border-box;
+            "
+          />
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+            Şifre
+          </label>
+          <input 
+            id="login-sifre"
+            type="password" 
+            placeholder="••••••••"
+            style="
+              width: 100%;
+              padding: 10px 14px;
+              background: #0f1923;
+              border: 1px solid #2c3e50;
+              border-radius: 6px;
+              color: #e0e0e0;
+              font-size: 14px;
+              outline: none;
+              box-sizing: border-box;
+            "
+          />
+        </div>
+
+        <button 
+          onclick="loginYap()"
+          style="
+            width: 100%;
+            padding: 12px;
+            background: #2e86de;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+          "
+        >Giriş Yap</button>
+
+        <div id="login-hata" style="
+          color: #ff4757;
+          font-size: 13px;
+          text-align: center;
+          margin-top: 12px;
+          min-height: 20px;
+        "></div>
+      </div>
+    </div>
+  `
+}
