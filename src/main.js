@@ -5,6 +5,8 @@ import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { popupHTML, popupKaydet } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML } from './auth.js'
+import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat } from './harita.js'
+
 let sayacInterval = null
 
 let sistemDurumu = null
@@ -49,6 +51,8 @@ async function render() {
       ${header()}
       ${duruBanner(durum, turBilgisi)}
       ${butonlar(durum)}
+      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
+      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
       <div class="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
@@ -58,6 +62,12 @@ async function render() {
   `
 
   gecmisKayitlariGetir().then(kayitlar => {
+    const haritaEl = document.getElementById('harita')
+  if (haritaEl) {
+    haritaOlustur('harita')
+    hatlariHaritayaCiz(sistemDurumu, tamamlananlar)
+    koordinatSeciciBaslat()
+  }
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
   })
@@ -140,6 +150,7 @@ function butonlar(durum) {
     </div>
   `
 }
+
 
 // ── ZONA KARTI ──
 function zonaKart(zona, durum, tamamlananlar = []) {
