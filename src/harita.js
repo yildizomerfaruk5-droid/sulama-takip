@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 import { supabase } from './supabase.js'
 
 let harita = null
