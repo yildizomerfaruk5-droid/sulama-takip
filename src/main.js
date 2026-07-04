@@ -504,6 +504,9 @@ window.cikisYap = async () => {
 }
 
 async function uygulamaBaslat() {
+  console.log('URL search:', window.location.search)
+  console.log('viewer var mı:', window.location.search.includes('viewer'))
+  
   if (window.location.search.includes('viewer')) {
     viewerRealtimeBaslat()
     await viewerRender()
@@ -519,8 +522,6 @@ async function uygulamaBaslat() {
 
   render()
 }
-
-window.viewerRender = viewerRender
 
 window.addEventListener('DOMContentLoaded', () => {
   uygulamaBaslat()
