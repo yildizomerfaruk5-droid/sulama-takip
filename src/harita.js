@@ -1,6 +1,6 @@
 import L from 'leaflet'
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 import { supabase } from './supabase.js'
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />import { supabase } from './supabase.js'
 
 let harita = null
 
