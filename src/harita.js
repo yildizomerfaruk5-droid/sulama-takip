@@ -66,14 +66,14 @@ export function haritaOlustur(elementId) {
   }
 
   harita = L.map(elementId, {
-    center: [38.6295, 38.2460],
-    zoom: 15,
+    center: [38.6295, 36.2460],
+    zoom: 20,
     zoomControl: true
   })
 
   // Uydu katmanı
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Esri World Imagery',
+ L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    attribution: 'Google Satellite',
     maxZoom: 21
   }).addTo(harita)
 

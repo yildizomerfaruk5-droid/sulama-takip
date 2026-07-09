@@ -4,8 +4,9 @@ import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { popupHTML, popupKaydet } from './popup.js'
-import { girisYap, cikisYap, mevcutKullanici, loginHTML } from './auth.js'
+import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
 import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat } from './harita.js'
+
 
 let sayacInterval = null
 
@@ -56,7 +57,9 @@ async function render() {
       <div class="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
-      <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
+      
+      <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
+      <div id="giris-gecmisi-liste">Yükleniyor...</div>
       <div id="gecmis-liste">Yükleniyor...</div>
     </div>
   `
@@ -68,6 +71,10 @@ async function render() {
     hatlariHaritayaCiz(sistemDurumu, tamamlananlar)
     koordinatSeciciBaslat()
   }
+  girisGecmisiniGetir().then(kayitlar => {
+    const el = document.getElementById('giris-gecmisi-liste')
+    if (el) el.innerHTML = girisGecmisiHTML(kayitlar)
+  })
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
   })
@@ -453,7 +460,7 @@ supabase
 function sayaciBaslat() {
   if (sayacInterval) clearInterval(sayacInterval)
   
-  sayacInterval = setInterval(() => {
+  sayacInterval = setInterval(async () => {
     if (!sistemDurumu?.sistem_acik || !sistemDurumu?.aktif_hat_id) {
       clearInterval(sayacInterval)
       return
@@ -462,7 +469,6 @@ function sayaciBaslat() {
     const el = document.getElementById(`sayac-${sistemDurumu.aktif_hat_id}`)
     if (!el) return
 
-    // Başlangıç zamanını localStorage'dan al
     const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
     let baslama = localStorage.getItem(baslamaKey)
     
@@ -478,6 +484,22 @@ function sayaciBaslat() {
     const saniye = gecenSn % 60
 
     el.textContent = `⏱ ${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
+
+    // Süre kontrolü — aktif hattın varsayılan süresi doldu mu?
+    const { data: aktifHat } = await supabase
+      .from('hatlar')
+      .select('varsayilan_sure_dk')
+      .eq('id', sistemDurumu.aktif_hat_id)
+      .single()
+
+    if (aktifHat) {
+      const limitMs = aktifHat.varsayilan_sure_dk * 60 * 1000
+      if (gecenMs >= limitMs) {
+        clearInterval(sayacInterval)
+        localStorage.removeItem(baslamaKey)
+        await hatAtla()
+      }
+    }
   }, 1000)
 }
 

@@ -238,3 +238,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+#harita {
+  height: calc(100vw * 9 / 16);
+  max-height: 700px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #2c3e50;
+  margin-bottom: 24px;
+  z-index: 1;
+  position: relative;
+}

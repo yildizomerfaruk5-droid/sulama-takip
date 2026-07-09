@@ -7,6 +7,14 @@ export async function girisYap(email, sifre) {
   })
 
   if (error) return { basarili: false, hata: error.message }
+
+  // Giriş geçmişine kaydet
+  await supabase.from('giris_gecmisi').insert({
+    kullanici_email: email,
+    giris_zamani: new Date().toISOString(),
+    cihaz: navigator.userAgent.substring(0, 200)
+  })
+
   return { basarili: true, kullanici: data.user }
 }
 
@@ -17,6 +25,17 @@ export async function cikisYap() {
 export async function mevcutKullanici() {
   const { data } = await supabase.auth.getSession()
   return data.session?.user || null
+}
+
+export async function girisGecmisiniGetir() {
+  const { data, error } = await supabase
+    .from('giris_gecmisi')
+    .select('*')
+    .order('giris_zamani', { ascending: false })
+    .limit(20)
+
+  if (error) return []
+  return data
 }
 
 export function loginHTML() {
@@ -117,4 +136,39 @@ export function loginHTML() {
       </div>
     </div>
   `
+}
+
+export function girisGecmisiHTML(kayitlar) {
+  if (kayitlar.length === 0) {
+    return '<div style="color:#7f8c8d; font-size:13px;">Henüz giriş kaydı yok.</div>'
+  }
+
+  return kayitlar.map(k => {
+    const tarih = new Date(k.giris_zamani).toLocaleString('tr-TR')
+    const cihaz = k.cihaz || '-'
+    const kisaCihaz = cihaz.includes('iPhone') ? '📱 iPhone' :
+                      cihaz.includes('Android') ? '📱 Android' :
+                      cihaz.includes('Windows') ? '💻 Windows' :
+                      cihaz.includes('Mac') ? '💻 Mac' : '🖥️ Diğer'
+
+    return `
+      <div style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #0f1923;
+        border: 1px solid #2c3e50;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-size: 13px;
+      ">
+        <div>
+          <div style="color:#e0e0e0; font-weight:bold;">${k.kullanici_email}</div>
+          <div style="color:#7f8c8d; font-size:12px;">${tarih}</div>
+        </div>
+        <div style="color:#7f8c8d;">${kisaCihaz}</div>
+      </div>
+    `
+  }).join('')
 }
