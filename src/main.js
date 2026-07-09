@@ -3,7 +3,7 @@ import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
-import { popupHTML, popupKaydet } from './popup.js'
+import { popupHTML, popupEventleriEkle } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
 import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat } from './harita.js'
 
@@ -207,17 +207,8 @@ window.hatTikla = async (hatId) => {
     .single()
 
   document.body.insertAdjacentHTML('beforeend', popupHTML(hat))
+  popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id)
 }
-
-window.popupKapat = (event) => {
-  if (event && event.target.id !== 'popup-overlay') return
-  document.getElementById('popup-overlay')?.remove()
-}
-
-window.popupKaydet = (hatId) => {
-  popupKaydet(hatId, sistemDurumu?.aktif_tur_id)
-}
-
 window.sistemiBaslat = async () => {
   // Zona 1'in ilk iki hatını getir
   const { data: tumHatlar } = await supabase
