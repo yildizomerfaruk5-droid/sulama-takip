@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
+import { haritaOlustur, hatlariHaritayaCiz } from './harita.js'
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -62,6 +63,8 @@ export async function viewerRender() {
         ` : ''}
       </div>
 
+      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
+
       <div class="zona-grid">
         ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
@@ -75,6 +78,12 @@ export async function viewerRender() {
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
   })
+
+  const haritaEl = document.getElementById('harita')
+  if (haritaEl) {
+    haritaOlustur('harita')
+    hatlariHaritayaCiz(sistemDurumu, tamamlananlar)
+  }
 
   if (acik) viewerSayacBaslat()
   else if (sayacInterval) clearInterval(sayacInterval)
