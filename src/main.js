@@ -53,7 +53,6 @@ async function render() {
       ${duruBanner(durum, turBilgisi)}
       ${butonlar(durum)}
       <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
-      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
       <div class="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
@@ -228,12 +227,26 @@ window.sistemiBaslat = async () => {
   const aktifHat = hatlar[0]
   const siradakiHat = hatlar[1] || null
 
+  // 2. tur sistemi: son tamamlanan turun numarasını bul, bir artır
+  const { data: sonTur } = await supabase
+    .from('turlar')
+    .select('tur_no')
+    .eq('durum', 'tamamlandi')
+    .order('tur_no', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const yeniTurNo = (sonTur?.tur_no || 0) + 1
+
+  const onay = confirm(`${yeniTurNo}. Su başlatılacak. Onaylıyor musunuz?`)
+  if (!onay) return
+
   // Yeni tur oluştur
   const { data: tur } = await supabase
     .from('turlar')
     .insert({
       zona_id: aktifHat.zona_id,
-      tur_no: 1,
+      tur_no: yeniTurNo,
       baslangic_zamani: new Date().toISOString(),
       durum: 'devam_ediyor'
     })
@@ -367,6 +380,19 @@ async function turTamamla() {
   const aktifZona = zonalar.find(z => z.id === sistemDurumu.aktif_zona_id)
   const siradakiZona = zonalar.find(z => z.sira_no === aktifZona.sira_no + 1)
 
+  // Mevcut zonanın turunu kapat, tur numarasını al
+  const { data: bitenTur } = await supabase
+    .from('turlar')
+    .update({
+      bitis_zamani: new Date().toISOString(),
+      durum: 'tamamlandi'
+    })
+    .eq('id', sistemDurumu.aktif_tur_id)
+    .select()
+    .single()
+
+  const turNo = bitenTur?.tur_no || 1
+
   if (siradakiZona) {
     // Zona 2'ye geç
     const { data: zonaHatlari } = await supabase
@@ -378,12 +404,12 @@ async function turTamamla() {
     const yeniAktif = zonaHatlari[0]
     const yeniSiradaki = zonaHatlari[1] || null
 
-    // Yeni tur oluştur
+    // Yeni tur oluştur — aynı su numarası devam eder (zona geçişi tur değiştirmez)
     const { data: yeniTur } = await supabase
       .from('turlar')
       .insert({
         zona_id: siradakiZona.id,
-        tur_no: 1,
+        tur_no: turNo,
         baslangic_zamani: new Date().toISOString(),
         durum: 'devam_ediyor'
       })
@@ -402,19 +428,11 @@ async function turTamamla() {
       })
       .eq('id', 1)
 
-    alert(`✅ Zona 1 tamamlandı! Zona 2 - Doğu Blok başlıyor.`)
+    alert(`✅ ${aktifZona.ad} tamamlandı! ${siradakiZona.ad} başlıyor.`)
     render()
 
   } else {
-    // Tüm zonalar bitti
-    await supabase
-      .from('turlar')
-      .update({
-        bitis_zamani: new Date().toISOString(),
-        durum: 'tamamlandi'
-      })
-      .eq('id', sistemDurumu.aktif_tur_id)
-
+    // Tüm zonalar bitti (tur zaten yukarıda kapatıldı)
     await supabase
       .from('sistem_durumu')
       .update({
@@ -431,7 +449,7 @@ async function turTamamla() {
       .filter(k => k.startsWith('hat_baslama_'))
       .forEach(k => localStorage.removeItem(k))
 
-    alert('🎉 Tüm zonalar tamamlandı! 1. Su bitti.')
+    alert(`🎉 Tüm zonalar tamamlandı! ${turNo}. Su bitti.\nYeni tur için "Sulamayı Başlat" butonunu kullanın.`)
     render()
   }
 }
@@ -511,31 +529,4 @@ window.loginYap = async () => {
   render()
 }
 
-window.cikisYap = async () => {
-  await cikisYap()
-  document.querySelector('#app').innerHTML = loginHTML()
-}
-
-async function uygulamaBaslat() {
-  console.log('URL search:', window.location.search)
-  console.log('viewer var mı:', window.location.search.includes('viewer'))
-  
-  if (window.location.search.includes('viewer')) {
-    viewerRealtimeBaslat()
-    await viewerRender()
-    return
-  }
-
-  const kullanici = await mevcutKullanici()
-  
-  if (!kullanici) {
-    document.querySelector('#app').innerHTML = loginHTML()
-    return
-  }
-
-  render()
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  uygulamaBaslat()
-})
+window.cikis
