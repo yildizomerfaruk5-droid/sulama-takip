@@ -17,6 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Ozel dosyalar (public repoya girmesin)
+sulama_takip_rapor_v5.txt
+sulama kontrol sistemi sohbeti.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
