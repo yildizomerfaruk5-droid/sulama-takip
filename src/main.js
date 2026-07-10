@@ -6,20 +6,29 @@ import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { popupHTML, popupEventleriEkle } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
 import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat } from './harita.js'
+import { bolgeleriGetir, profilGetir } from './bolge.js'
 
 
 let sayacInterval = null
 
 let sistemDurumu = null
+let profil = null      // giriş yapan kullanıcının profili (rol + bölge)
+let bolgeler = []      // kullanıcının erişebildiği bölgeler
+let aktifBolge = null  // seçili bölge
 
 // ── RENDER ──
 async function render() {
   const app = document.querySelector('#app')
   app.innerHTML = '<div class="loading">Yükleniyor...</div>'
 
+  if (!aktifBolge) {
+    app.innerHTML = '<div class="loading">Bölge bulunamadı. Veritabanında en az bir bölge tanımlı olmalı (supabase_migration_bolgeler.sql).</div>'
+    return
+  }
+
   const [zonalar, durum] = await Promise.all([
-    zonaVeHatlariGetir(),
-    sistemDurumuGetir()
+    zonaVeHatlariGetir(aktifBolge.id),
+    sistemDurumuGetir(aktifBolge.id)
   ])
 
   sistemDurumu = durum
@@ -32,7 +41,7 @@ async function render() {
       .select('hat_id')
       .eq('tur_id', durum.aktif_tur_id)
       .eq('durum', 'tamamlandi')
-    
+
     tamamlananlar = (data || []).map(k => k.hat_id)
   }
 
@@ -56,18 +65,18 @@ async function render() {
       <div class="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
-      
+
       <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
       <div id="giris-gecmisi-liste">Yükleniyor...</div>
       <div id="gecmis-liste">Yükleniyor...</div>
     </div>
   `
 
-  gecmisKayitlariGetir().then(kayitlar => {
+  gecmisKayitlariGetir(aktifBolge.id).then(kayitlar => {
     const haritaEl = document.getElementById('harita')
   if (haritaEl) {
-    haritaOlustur('harita')
-    hatlariHaritayaCiz(sistemDurumu, tamamlananlar)
+    haritaOlustur('harita', aktifBolge)
+    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, aktifBolge.id)
     koordinatSeciciBaslat()
   }
   girisGecmisiniGetir().then(kayitlar => {
@@ -88,17 +97,41 @@ async function render() {
 
 
 
+// ── BÖLGE SEÇİCİ ──
+function bolgeSecici() {
+  // Tek bölge varsa (veya denetleyici kilitliyse) sadece adı göster
+  if (bolgeler.length <= 1) {
+    return `<div class="meta" style="color:#5dade2;">📍 ${aktifBolge?.ad || ''}</div>`
+  }
+  return `
+    <select onchange="bolgeDegistir(this.value)" style="
+      padding: 6px 10px;
+      background: #0f1923;
+      border: 1px solid #2c3e50;
+      border-radius: 6px;
+      color: #5dade2;
+      font-size: 13px;
+      cursor: pointer;
+    ">
+      ${bolgeler.map(b => `
+        <option value="${b.id}" ${b.id === aktifBolge?.id ? 'selected' : ''}>📍 ${b.ad}</option>
+      `).join('')}
+    </select>
+  `
+}
+
 // ── HEADER ──
 function header() {
   return `
     <div class="header">
       <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
       <div style="display:flex; align-items:center; gap:16px;">
-        <div class="meta">${new Date().toLocaleDateString('tr-TR', { 
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        ${bolgeSecici()}
+        <div class="meta">${new Date().toLocaleDateString('tr-TR', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         })}</div>
-        <button 
-          onclick="cikisYap()" 
+        <button
+          onclick="cikisYap()"
           style="
             padding: 6px 14px;
             background: transparent;
@@ -208,16 +241,30 @@ window.hatTikla = async (hatId) => {
   document.body.insertAdjacentHTML('beforeend', popupHTML(hat))
   popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id)
 }
+
 window.sistemiBaslat = async () => {
-  // Zona 1'in ilk iki hatını getir
+  // Aktif bölgenin zonalarını sırayla getir
+  const { data: bolgeZonalari } = await supabase
+    .from('zonalar')
+    .select('id')
+    .eq('bolge_id', aktifBolge.id)
+    .order('sira_no')
+
+  const zonaIdler = (bolgeZonalari || []).map(z => z.id)
+  if (zonaIdler.length === 0) {
+    alert('Bu bölgede zona tanımlı değil.')
+    return
+  }
+
+  // Bölgenin ilk zonasının hatlarını getir
   const { data: tumHatlar } = await supabase
     .from('hatlar')
     .select('id, zona_id, sira_no')
+    .in('zona_id', zonaIdler)
     .order('sira_no')
 
-  // İlk zona'nın hatlarını filtrele
-  const ilkZonaId = tumHatlar[0]?.zona_id
-  const hatlar = tumHatlar.filter(h => h.zona_id === ilkZonaId)
+  const ilkZonaId = zonaIdler.find(zid => (tumHatlar || []).some(h => h.zona_id === zid))
+  const hatlar = (tumHatlar || []).filter(h => h.zona_id === ilkZonaId)
 
   if (!hatlar || hatlar.length === 0) {
     alert('Hat bulunamadı.')
@@ -227,11 +274,12 @@ window.sistemiBaslat = async () => {
   const aktifHat = hatlar[0]
   const siradakiHat = hatlar[1] || null
 
-  // 2. tur sistemi: son tamamlanan turun numarasını bul, bir artır
+  // 2. tur sistemi: bu bölgede son tamamlanan turun numarasını bul, bir artır
   const { data: sonTur } = await supabase
     .from('turlar')
-    .select('tur_no')
+    .select('tur_no, zonalar!inner(bolge_id)')
     .eq('durum', 'tamamlandi')
+    .eq('zonalar.bolge_id', aktifBolge.id)
     .order('tur_no', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -264,7 +312,7 @@ window.sistemiBaslat = async () => {
       aktif_zona_id: aktifHat.zona_id,
       guncelleme_zamani: new Date().toISOString()
     })
-    .eq('id', 1)
+    .eq('bolge_id', aktifBolge.id)
 
   render()
 }
@@ -275,13 +323,13 @@ window.sistemiKapat = async () => {
 
   await supabase
     .from('sistem_durumu')
-    .update({ 
-      sistem_acik: false, 
-      aktif_hat_id: null, 
+    .update({
+      sistem_acik: false,
+      aktif_hat_id: null,
       siradaki_hat_id: null,
       guncelleme_zamani: new Date().toISOString()
     })
-    .eq('id', 1)
+    .eq('bolge_id', aktifBolge.id)
 
   render()
 }
@@ -289,16 +337,22 @@ window.sistemiKapat = async () => {
 window.hatAtla = async () => {
   if (!sistemDurumu?.sistem_acik) return
 
+  const { data: bolgeZonalari } = await supabase
+    .from('zonalar')
+    .select('id')
+    .eq('bolge_id', aktifBolge.id)
+
   const { data: tumHatlar } = await supabase
     .from('hatlar')
     .select('id, zona_id, sira_no, hat_no')
+    .in('zona_id', (bolgeZonalari || []).map(z => z.id))
     .order('sira_no')
 
   const siradakiHat = tumHatlar.find(h => h.id === sistemDurumu.siradaki_hat_id)
-  
+
   // Mevcut aktif hattı tamamlandı kaydet
   localStorage.removeItem(`hat_baslama_${sistemDurumu.aktif_hat_id}`)
-  
+
   await supabase
     .from('sulama_kayitlari')
     .insert({
@@ -327,7 +381,7 @@ window.hatAtla = async () => {
       siradaki_hat_id: yeniSiradaki?.id || null,
       guncelleme_zamani: new Date().toISOString()
     })
-    .eq('id', 1)
+    .eq('bolge_id', aktifBolge.id)
 
   render()
 }
@@ -351,10 +405,16 @@ window.sureDegistir = async () => {
       .update({ varsayilan_sure_dk: sure })
       .eq('id', sistemDurumu.aktif_hat_id)
   } else {
-    // Tüm hatlar - id'leri tek tek güncelle
+    // Bu bölgedeki tüm hatlar - id'leri tek tek güncelle
+    const { data: bolgeZonalari } = await supabase
+      .from('zonalar')
+      .select('id')
+      .eq('bolge_id', aktifBolge.id)
+
     const { data: tumHatlar } = await supabase
       .from('hatlar')
       .select('id')
+      .in('zona_id', (bolgeZonalari || []).map(z => z.id))
 
     for (const hat of tumHatlar) {
       await supabase
@@ -371,10 +431,11 @@ window.sureDegistir = async () => {
 async function turTamamla() {
   if (sayacInterval) clearInterval(sayacInterval)
 
-  // Aktif zonayı bul, sıradaki zonaya geç
+  // Aktif zonayı bul, aynı bölgedeki sıradaki zonaya geç
   const { data: zonalar } = await supabase
     .from('zonalar')
     .select('*')
+    .eq('bolge_id', aktifBolge.id)
     .order('sira_no')
 
   const aktifZona = zonalar.find(z => z.id === sistemDurumu.aktif_zona_id)
@@ -394,7 +455,7 @@ async function turTamamla() {
   const turNo = bitenTur?.tur_no || 1
 
   if (siradakiZona) {
-    // Zona 2'ye geç
+    // Sıradaki zonaya geç
     const { data: zonaHatlari } = await supabase
       .from('hatlar')
       .select('id, zona_id, sira_no')
@@ -426,7 +487,7 @@ async function turTamamla() {
         aktif_zona_id: siradakiZona.id,
         guncelleme_zamani: new Date().toISOString()
       })
-      .eq('id', 1)
+      .eq('bolge_id', aktifBolge.id)
 
     alert(`✅ ${aktifZona.ad} tamamlandı! ${siradakiZona.ad} başlıyor.`)
     render()
@@ -443,7 +504,7 @@ async function turTamamla() {
         aktif_zona_id: null,
         guncelleme_zamani: new Date().toISOString()
       })
-      .eq('id', 1)
+      .eq('bolge_id', aktifBolge.id)
 
     Object.keys(localStorage)
       .filter(k => k.startsWith('hat_baslama_'))
@@ -458,17 +519,17 @@ async function turTamamla() {
 // ── REALTIME ──
 supabase
   .channel('sistem_durumu')
-  .on('postgres_changes', { 
-    event: '*', 
-    schema: 'public', 
-    table: 'sistem_durumu' 
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'sistem_durumu'
   }, () => render())
   .subscribe()
 
-// ── BAŞLAT ──
+// ── SAYAÇ ──
 function sayaciBaslat() {
   if (sayacInterval) clearInterval(sayacInterval)
-  
+
   sayacInterval = setInterval(async () => {
     if (!sistemDurumu?.sistem_acik || !sistemDurumu?.aktif_hat_id) {
       clearInterval(sayacInterval)
@@ -480,7 +541,7 @@ function sayaciBaslat() {
 
     const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
     let baslama = localStorage.getItem(baslamaKey)
-    
+
     if (!baslama) {
       baslama = new Date().toISOString()
       localStorage.setItem(baslamaKey, baslama)
@@ -526,7 +587,62 @@ window.loginYap = async () => {
     return
   }
 
+  // Girişten sonra rol + bölge bilgileri yüklensin
+  uygulamaBaslat()
+}
+
+window.cikisYap = async () => {
+  await cikisYap()
+  document.querySelector('#app').innerHTML = loginHTML()
+}
+
+async function uygulamaBaslat() {
+  if (window.location.search.includes('viewer')) {
+    viewerRealtimeBaslat()
+    await viewerRender()
+    return
+  }
+
+  const kullanici = await mevcutKullanici()
+
+  if (!kullanici) {
+    document.querySelector('#app').innerHTML = loginHTML()
+    return
+  }
+
+  // Rol ve bölge belirleme
+  profil = await profilGetir(kullanici.id)
+  // Geçiş dönemi: profili olmayan kullanıcı yönetici sayılır (mevcut admin hesabı için)
+  const rol = profil?.rol || 'yonetici'
+
+  if (rol === 'isci') {
+    // İşçi arayüzü sonraki aşamada — şimdilik salt görüntüleme
+    viewerRealtimeBaslat()
+    await viewerRender()
+    return
+  }
+
+  bolgeler = await bolgeleriGetir()
+
+  // Denetleyici sadece kendi bölgesini görür
+  if (rol === 'denetleyici' && profil?.bolge_id) {
+    bolgeler = bolgeler.filter(b => b.id === profil.bolge_id)
+  }
+
+  const kayitliBolgeId = localStorage.getItem('secili_bolge_id')
+  aktifBolge = bolgeler.find(b => b.id === kayitliBolgeId) || bolgeler[0] || null
+
   render()
 }
 
-window.cikis
+window.bolgeDegistir = (bolgeId) => {
+  const yeni = bolgeler.find(b => b.id === bolgeId)
+  if (!yeni) return
+  aktifBolge = yeni
+  localStorage.setItem('secili_bolge_id', bolgeId)
+  render()
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  uygulamaBaslat()
+})

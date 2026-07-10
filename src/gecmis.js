@@ -1,17 +1,21 @@
 import { supabase } from './supabase.js'
 
-export async function gecmisKayitlariGetir() {
-  const { data, error } = await supabase
+export async function gecmisKayitlariGetir(bolgeId = null) {
+  let sorgu = supabase
     .from('sulama_kayitlari')
     .select(`
       *,
-      hatlar (hat_no, parsel_bilgisi, zona_id,
-        zonalar (ad)
+      hatlar!inner (hat_no, parsel_bilgisi, zona_id,
+        zonalar!inner (ad, bolge_id)
       ),
       turlar (tur_no)
     `)
     .order('olusturma_zamani', { ascending: false })
     .limit(50)
+
+  if (bolgeId) sorgu = sorgu.eq('hatlar.zonalar.bolge_id', bolgeId)
+
+  const { data, error } = await sorgu
 
   if (error) {
     console.error('Geçmiş kayıt hatası:', error.message)
@@ -30,8 +34,8 @@ export function gecmisHTML(kayitlar) {
     const hat = k.hatlar
     const tur = k.turlar
     const tarih = new Date(k.olusturma_zamani).toLocaleString('tr-TR')
-    const sure = k.sure_dakika 
-      ? `${Math.floor(k.sure_dakika/60)}sa ${k.sure_dakika%60}dk` 
+    const sure = k.sure_dakika
+      ? `${Math.floor(k.sure_dakika/60)}sa ${k.sure_dakika%60}dk`
       : '-'
 
     const durumRenk = {
@@ -44,7 +48,7 @@ export function gecmisHTML(kayitlar) {
       <div class="kayit-satir">
         <div class="kayit-sol">
           <div class="kayit-hat">
-            Hat-${hat?.hat_no || '?'} 
+            Hat-${hat?.hat_no || '?'}
             <span style="color:#7f8c8d; font-size:11px;">
               ${hat?.parsel_bilgisi || ''} — ${hat?.zonalar?.ad || ''}
             </span>
@@ -58,7 +62,7 @@ export function gecmisHTML(kayitlar) {
         </div>
         <div class="kayit-sag">
           <span class="kayit-durum" style="color:${durumRenk}">
-            ${k.durum === 'tamamlandi' ? '✓ Tamamlandı' : 
+            ${k.durum === 'tamamlandi' ? '✓ Tamamlandı' :
               k.durum === 'atlandi' ? '⏭ Atlandı' : '✕ İptal'}
           </span>
           <span class="kayit-islem">${k.islem_turu || 'sulama'}</span>

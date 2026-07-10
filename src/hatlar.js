@@ -1,19 +1,25 @@
 import { supabase } from './supabase.js'
 
-export async function zonaVeHatlariGetir() {
-  const { data: zonalar, error: zonaHata } = await supabase
+export async function zonaVeHatlariGetir(bolgeId = null) {
+  let zonaSorgu = supabase
     .from('zonalar')
     .select('*')
     .order('sira_no')
+
+  if (bolgeId) zonaSorgu = zonaSorgu.eq('bolge_id', bolgeId)
+
+  const { data: zonalar, error: zonaHata } = await zonaSorgu
 
   if (zonaHata) {
     console.error('Zona hatası:', zonaHata.message)
     return []
   }
+  if (!zonalar || zonalar.length === 0) return []
 
   const { data: hatlar, error: hatHata } = await supabase
     .from('hatlar')
     .select('*')
+    .in('zona_id', zonalar.map(z => z.id))
     .order('sira_no')
 
   if (hatHata) {
@@ -28,12 +34,13 @@ export async function zonaVeHatlariGetir() {
   }))
 }
 
-export async function sistemDurumuGetir() {
-  const { data, error } = await supabase
-    .from('sistem_durumu')
-    .select('*')
-    .eq('id', 1)
-    .single()
+export async function sistemDurumuGetir(bolgeId = null) {
+  let sorgu = supabase.from('sistem_durumu').select('*')
+
+  // Bölge verilmişse bölgeye göre, verilmemişse eski tek satır (id=1) düzeni
+  sorgu = bolgeId ? sorgu.eq('bolge_id', bolgeId) : sorgu.eq('id', 1)
+
+  const { data, error } = await sorgu.maybeSingle()
 
   if (error) {
     console.error('Sistem durumu hatası:', error.message)

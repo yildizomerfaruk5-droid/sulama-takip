@@ -2,17 +2,31 @@ import { supabase } from './supabase.js'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz } from './harita.js'
+import { bolgeleriGetir } from './bolge.js'
 
 let sistemDurumu = null
 let sayacInterval = null
+let viewerBolge = null
+
+// URL'den bölge belirle: ?viewer&bolge=kayseri-ana (kod veya id)
+async function viewerBolgeBelirle() {
+  if (viewerBolge) return viewerBolge
+  const params = new URLSearchParams(window.location.search)
+  const istenen = params.get('bolge')
+  const bolgeler = await bolgeleriGetir()
+  viewerBolge = bolgeler.find(b => b.kod === istenen || b.id === istenen) || bolgeler[0] || null
+  return viewerBolge
+}
 
 export async function viewerRender() {
   const app = document.querySelector('#app')
   app.innerHTML = '<div class="loading">Yükleniyor...</div>'
 
+  const bolge = await viewerBolgeBelirle()
+
   const [zonalar, durum] = await Promise.all([
-    zonaVeHatlariGetir(),
-    sistemDurumuGetir()
+    zonaVeHatlariGetir(bolge?.id),
+    sistemDurumuGetir(bolge?.id)
   ])
 
   sistemDurumu = durum
@@ -45,9 +59,12 @@ export async function viewerRender() {
     <div class="container">
       <div class="header">
         <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
-        <div class="meta">${new Date().toLocaleDateString('tr-TR', { 
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-        })}</div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          ${bolge ? `<div class="meta" style="color:#5dade2;">📍 ${bolge.ad}</div>` : ''}
+          <div class="meta">${new Date().toLocaleDateString('tr-TR', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          })}</div>
+        </div>
       </div>
 
       <div class="durum-banner">
@@ -74,15 +91,15 @@ export async function viewerRender() {
     </div>
   `
 
-  gecmisKayitlariGetir().then(kayitlar => {
+  gecmisKayitlariGetir(bolge?.id).then(kayitlar => {
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
   })
 
   const haritaEl = document.getElementById('harita')
   if (haritaEl) {
-    haritaOlustur('harita')
-    hatlariHaritayaCiz(sistemDurumu, tamamlananlar)
+    haritaOlustur('harita', bolge)
+    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
   }
 
   if (acik) viewerSayacBaslat()

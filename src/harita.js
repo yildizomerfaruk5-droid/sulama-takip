@@ -59,15 +59,22 @@ const VANA_NOKTALARI = [
   { konum: [dms(38,37,42.7), dms(36,14,44.1)], ad: "Vana 3 - Ayrım Noktası" },
 ]
 
-export function haritaOlustur(elementId) {
+export function haritaOlustur(elementId, bolge = null) {
   if (harita) {
     harita.remove()
     harita = null
   }
 
+  // Sabit çizimler (parseller, borular, kuyu) Kayseri ana sahasına ait.
+  // Diğer bölgelerde harita sadece bölge merkezine odaklanır;
+  // o bölgelerin verileri ileride veritabanından çizilecek.
+  const kayseriSahasi = !bolge || bolge.kod === 'kayseri-ana'
+
   harita = L.map(elementId, {
-    center: [38.6295, 36.2460],
-    zoom: 20,
+    center: bolge?.merkez_lat != null
+      ? [bolge.merkez_lat, bolge.merkez_lng]
+      : [38.6295, 36.2460],
+    zoom: bolge?.varsayilan_zoom || 15,
     zoomControl: true
   })
 
@@ -76,6 +83,8 @@ export function haritaOlustur(elementId) {
     attribution: 'Google Satellite',
     maxZoom: 21
   }).addTo(harita)
+
+  if (!kayseriSahasi) return harita
 
   // Parselleri çiz
   PARSELLER.forEach(p => {
@@ -139,14 +148,18 @@ export function haritaOlustur(elementId) {
   return harita
 }
 
-export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = []) {
+export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = [], bolgeId = null) {
   if (!harita) return
 
-  const { data: hatlar } = await supabase
+  let sorgu = supabase
     .from('hatlar')
-    .select('*, zonalar(ad)')
+    .select('*, zonalar!inner(ad, bolge_id)')
     .not('baslangic_lat', 'is', null)
     .order('sira_no')
+
+  if (bolgeId) sorgu = sorgu.eq('zonalar.bolge_id', bolgeId)
+
+  const { data: hatlar } = await sorgu
 
   if (!hatlar || hatlar.length === 0) return
 
