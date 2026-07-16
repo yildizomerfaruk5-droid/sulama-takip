@@ -211,7 +211,9 @@ function seritOlustur(baslangic, bitis, genislik) {
 
 export function koordinatSeciciBaslat() {
   if (!harita) return
+  // Sadece Ctrl+tiklama ile calisir — normal tiklama fiskiye/vana popuplarina birakildi
   harita.on('click', (e) => {
+    if (!e.originalEvent.ctrlKey) return
     const { lat, lng } = e.latlng
     console.log(`Koordinat: ${lat.toFixed(6)}, ${lng.toFixed(6)}`)
     L.marker([lat, lng])
