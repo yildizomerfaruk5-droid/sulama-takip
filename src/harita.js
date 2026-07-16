@@ -378,10 +378,13 @@ function kenarBoyuncaNoktalar(vana, adet, baslangicKaydirma = 0) {
 // (33 ve 34'un boslugu ayni hizada — tarladaki ekilmemis alan bitisik)
 const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
 
+// Parsel sonuna kadar uzayan vanalar (fiskiye sayisina bakilmaz, sinira kadar devam)
+const UZAT = { 32: 'alt' }
+
 function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
   L.circleMarker([lat, lng], {
     renderer,
-    radius: 2.5,
+    radius: 3,
     stroke: false,
     fillColor: '#00e5ff',
     fillOpacity: 0.8
@@ -392,7 +395,7 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
 
 // Fiskiye noktalari: vanadan ekim yonunde 10m arayla, parsel disina tasanlar cizilmez
 function fiskiyeleriCiz(vanalar) {
-  const fRenderer = L.canvas({ padding: 0.5 })
+  const fRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
 
   vanalar.forEach(v => {
     if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
@@ -436,13 +439,16 @@ function fiskiyeleriCiz(vanalar) {
       // Konum indeksleri: bosluklu vanalarda sondan 10 fiskiye 3 aralik ileri
       const bosluk = BOSLUKLU[v.isaretci_no]
       const bosluklu = bosluk && bosluk.yon === v.yon
+
+      // Uzatilan vanalar: parsel sinirina kadar devam (ust limit 80 pozisyon)
+      const cizimAdet = UZAT[v.isaretci_no] === v.yon ? 80 : adet
+
       const konumlar = []
-      for (let i = 1; i <= adet; i++) {
+      for (let i = 1; i <= cizimAdet; i++) {
         konumlar.push(bosluklu && i > bosluk.sonra ? i + 3 : i)
       }
 
       konumlar.forEach(ki => {
-        siraNo++
         const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
 
         // Parsel disina tasan fiskiyeleri cizme
@@ -451,6 +457,7 @@ function fiskiyeleriCiz(vanalar) {
           return
         }
 
+        siraNo++
         fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, fRenderer)
       })
     })
