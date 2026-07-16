@@ -220,27 +220,7 @@ export function koordinatSeciciBaslat() {
       .openPopup()
   })
 }
-// ── VANALAR VE FISKIYELER (KML saha verisi) ──
-
-// Bir noktadan verilen pusula yönünde (derece) verilen metre kadar ötelenmiş koordinat
-function metreOtele(lat, lng, yonDerece, metre) {
-  const R = 6378137
-  const b = yonDerece * Math.PI / 180
-  const dLat = (metre * Math.cos(b)) / R * (180 / Math.PI)
-  const dLng = (metre * Math.sin(b)) / (R * Math.cos(lat * Math.PI / 180)) * (180 / Math.PI)
-  return [lat + dLat, lng + dLng]
-}
-
-const FISKIYE_ARALIK = 10 // metre — ayni vana borusundaki fiskiyeler arasi
-
-// Ozel dizilimler: [boru boyunca yan kayma (m), o siradaki fiskiye sayisi]
-// Isaretci 1: ana sirada 8, sola (~225 derece) 12m arayla 5 ve 4
-// Isaretci 19: ana sirada 9, saga (~45 derece) 12m arayla 7 ve 4
-const OZEL_DIZILIM = {
-  1:  { yanYon: 225, siralar: [[0, 8], [12, 5], [24, 4]] },
-  19: { yanYon: 45,  siralar: [[0, 9], [12, 7], [24, 4]] }
-}
-
+// ── VANALAR (KML saha verisi) ──
 export async function vanalariHaritayaCiz(bolgeId = null) {
   if (!harita) return
 
@@ -258,39 +238,7 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   }
   if (!vanalar || vanalar.length === 0) return
 
-  // Fiskiye noktalari icin canvas renderer (1000+ nokta performansi)
-  const fRenderer = L.canvas({ padding: 0.5 })
-
-  // ── Fiskiye noktalari ──
-  vanalar.forEach(v => {
-    // Sulama yonu: ust kayitlar ekim yonunun tersine akar
-    const yon = v.yon === 'ust'
-      ? (v.ekim_yonu_derece + 180) % 360
-      : v.ekim_yonu_derece
-
-    // Siralar: ozel dizilim varsa (yalnizca ana kayit, alt/ust degil) onu kullan
-    const ozel = (v.yon === null && OZEL_DIZILIM[v.isaretci_no]) || null
-    const siralar = ozel ? ozel.siralar : [[0, v.fiskiye_sayisi]]
-
-    siralar.forEach(([yanMesafe, adet]) => {
-      let baslangic = [v.lat, v.lng]
-      if (yanMesafe > 0) baslangic = metreOtele(v.lat, v.lng, ozel.yanYon, yanMesafe)
-
-      for (let i = 1; i <= adet; i++) {
-        const [fLat, fLng] = metreOtele(baslangic[0], baslangic[1], yon, i * FISKIYE_ARALIK)
-        L.circleMarker([fLat, fLng], {
-          renderer: fRenderer,
-          radius: 1.8,
-          stroke: false,
-          fillColor: '#00e5ff',
-          fillOpacity: 0.8,
-          interactive: false
-        }).addTo(harita)
-      }
-    })
-  })
-
-  // ── Vana isaretleri (baklava/elmas ikon) ──
+  // Ayni konumda alt+ust iki kayit olabilir; konum basina grupla
   const gruplar = {}
   vanalar.forEach(v => {
     const anahtar = `${v.lat},${v.lng}`
