@@ -9,6 +9,8 @@ import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHarit
 import { bolgeleriGetir, profilGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
+import { logKaydet, loglariGetir, logHTML } from './log.js'
+import { yedekIndir } from './yedek.js'
 
 
 let sayacInterval = null
@@ -71,6 +73,21 @@ async function render() {
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
 
+      <div class="gecmis-baslik" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>📜 Olay Kayıtları</span>
+        <button onclick="yedekAl(this)" style="
+          padding: 6px 14px;
+          background: #00cec9;
+          border: none;
+          border-radius: 6px;
+          color: #003330;
+          font-size: 12px;
+          font-weight: bold;
+          cursor: pointer;
+        ">💾 Yedek İndir</button>
+      </div>
+      <div id="olay-log-liste">Yükleniyor...</div>
+
       <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
       <div id="giris-gecmisi-liste">Yükleniyor...</div>
       <div id="gecmis-liste">Yükleniyor...</div>
@@ -105,6 +122,11 @@ async function render() {
   })
 
   istatistikVerileriGetir(aktifBolge.id).then(veri => istatistikCiz(veri))
+
+  loglariGetir(aktifBolge.id).then(loglar => {
+    const el = document.getElementById('olay-log-liste')
+    if (el) el.innerHTML = logHTML(loglar)
+  })
 
   // Sayacı başlat
   if (sistemDurumu?.sistem_acik) {
@@ -308,6 +330,8 @@ window.sistemiBaslat = async () => {
   const onay = confirm(`${yeniTurNo}. Su başlatılacak. Onaylıyor musunuz?`)
   if (!onay) return
 
+  logKaydet('sistem_baslatildi', `${yeniTurNo}. Su başlatıldı (${aktifBolge.ad})`, aktifBolge.id)
+
   // Yeni tur oluştur
   const { data: tur } = await supabase
     .from('turlar')
@@ -339,6 +363,8 @@ window.sistemiBaslat = async () => {
 window.sistemiKapat = async () => {
   const onay = confirm('Sistemi kapatmak istediğinizden emin misiniz?')
   if (!onay) return
+
+  logKaydet('sistem_kapatildi', `Sistem kapatıldı (acil durdurma)`, aktifBolge.id)
 
   await supabase
     .from('sistem_durumu')
@@ -386,6 +412,10 @@ window.hatAtla = async () => {
       sure_dakika: sureDk || null,
       durum: 'tamamlandi'
     })
+
+  logKaydet('hat_gecisi',
+    `Hat tamamlandı (${Math.floor(sureDk / 60)}sa ${sureDk % 60}dk çalıştı)${siradakiHat ? `, Hat-${siradakiHat.hat_no} başladı` : ''}`,
+    aktifBolge.id)
 
   // Sıradaki hat yoksa — tur tamamlandı
   if (!siradakiHat) {
@@ -449,6 +479,7 @@ window.sureDegistir = async () => {
 
     alert(`Tüm hatların süresi ${sure} dakika olarak güncellendi.`)
   }
+  logKaydet('sure_degistirildi', `Süre ${sure} dk yapıldı (${kapsam ? 'aktif hat' : 'tüm hatlar'})`, aktifBolge.id)
   render()
 }
 
@@ -513,6 +544,7 @@ async function turTamamla() {
       })
       .eq('bolge_id', aktifBolge.id)
 
+    logKaydet('zona_gecisi', `${aktifZona.ad} tamamlandı, ${siradakiZona.ad} başladı (${turNo}. Su)`, aktifBolge.id)
     alert(`✅ ${aktifZona.ad} tamamlandı! ${siradakiZona.ad} başlıyor.`)
     render()
 
@@ -534,6 +566,7 @@ async function turTamamla() {
       .filter(k => k.startsWith('hat_baslama_'))
       .forEach(k => localStorage.removeItem(k))
 
+    logKaydet('tur_tamamlandi', `${turNo}. Su tamamlandı — tüm zonalar bitti`, aktifBolge.id)
     alert(`🎉 Tüm zonalar tamamlandı! ${turNo}. Su bitti.\nYeni tur için "Sulamayı Başlat" butonunu kullanın.`)
     render()
   }
@@ -661,6 +694,21 @@ async function uygulamaBaslat() {
   aktifBolge = bolgeler.find(b => b.id === kayitliBolgeId) || bolgeler[0] || null
 
   render()
+}
+
+window.yedekAl = async (btn) => {
+  btn.disabled = true
+  btn.textContent = 'Hazırlanıyor...'
+  try {
+    const sonuc = await yedekIndir(aktifBolge)
+    btn.textContent = `✓ ${sonuc.kayitToplam} kayıt indirildi`
+  } catch (e) {
+    btn.textContent = 'Hata: ' + e.message
+  }
+  setTimeout(() => {
+    btn.disabled = false
+    btn.textContent = '💾 Yedek İndir'
+  }, 3000)
 }
 
 window.bolgeDegistir = (bolgeId) => {
