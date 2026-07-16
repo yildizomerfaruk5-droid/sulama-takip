@@ -220,7 +220,27 @@ export function koordinatSeciciBaslat() {
       .openPopup()
   })
 }
-// ── VANALAR (KML saha verisi) ──
+// ── VANALAR VE FISKIYELER (KML saha verisi) ──
+
+// Bir noktadan verilen pusula yönünde (derece) verilen metre kadar ötelenmiş koordinat
+function metreOtele(lat, lng, yonDerece, metre) {
+  const R = 6378137
+  const b = yonDerece * Math.PI / 180
+  const dLat = (metre * Math.cos(b)) / R * (180 / Math.PI)
+  const dLng = (metre * Math.sin(b)) / (R * Math.cos(lat * Math.PI / 180)) * (180 / Math.PI)
+  return [lat + dLat, lng + dLng]
+}
+
+const FISKIYE_ARALIK = 10 // metre — ayni vana borusundaki fiskiyeler arasi
+
+// Ozel dizilimler: [boru boyunca yan kayma (m), o siradaki fiskiye sayisi]
+// Isaretci 1: ana sirada 8, sola (~225 derece) 12m arayla 5 ve 4
+// Isaretci 19: ana sirada 9, saga (~45 derece) 12m arayla 7 ve 4
+const OZEL_DIZILIM = {
+  1:  { yanYon: 225, siralar: [[0, 8], [12, 5], [24, 4]] },
+  19: { yanYon: 45,  siralar: [[0, 9], [12, 7], [24, 4]] }
+}
+
 export async function vanalariHaritayaCiz(bolgeId = null) {
   if (!harita) return
 
@@ -238,7 +258,39 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   }
   if (!vanalar || vanalar.length === 0) return
 
-  // Aynı konumda alt+üst iki kayıt olabilir; konum başına grupla
+  // Fiskiye noktalari icin canvas renderer (1000+ nokta performansi)
+  const fRenderer = L.canvas({ padding: 0.5 })
+
+  // ── Fiskiye noktalari ──
+  vanalar.forEach(v => {
+    // Sulama yonu: ust kayitlar ekim yonunun tersine akar
+    const yon = v.yon === 'ust'
+      ? (v.ekim_yonu_derece + 180) % 360
+      : v.ekim_yonu_derece
+
+    // Siralar: ozel dizilim varsa (yalnizca ana kayit, alt/ust degil) onu kullan
+    const ozel = (v.yon === null && OZEL_DIZILIM[v.isaretci_no]) || null
+    const siralar = ozel ? ozel.siralar : [[0, v.fiskiye_sayisi]]
+
+    siralar.forEach(([yanMesafe, adet]) => {
+      let baslangic = [v.lat, v.lng]
+      if (yanMesafe > 0) baslangic = metreOtele(v.lat, v.lng, ozel.yanYon, yanMesafe)
+
+      for (let i = 1; i <= adet; i++) {
+        const [fLat, fLng] = metreOtele(baslangic[0], baslangic[1], yon, i * FISKIYE_ARALIK)
+        L.circleMarker([fLat, fLng], {
+          renderer: fRenderer,
+          radius: 1.8,
+          stroke: false,
+          fillColor: '#00e5ff',
+          fillOpacity: 0.8,
+          interactive: false
+        }).addTo(harita)
+      }
+    })
+  })
+
+  // ── Vana isaretleri (baklava/elmas ikon) ──
   const gruplar = {}
   vanalar.forEach(v => {
     const anahtar = `${v.lat},${v.lng}`
@@ -249,6 +301,7 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   Object.values(gruplar).forEach(grup => {
     const v = grup[0]
     const ciftYonlu = grup.length > 1
+    const renk = ciftYonlu ? '#e67e22' : '#f1c40f'
     const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
 
     const satirlar = grup.map(x => `
@@ -256,22 +309,29 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
       ${x.fiskiye_sayisi} fıskiye
     `).join('<br>')
 
-    L.circleMarker([v.lat, v.lng], {
-      radius: 6,
-      color: ciftYonlu ? '#e67e22' : '#f1c40f',
-      weight: 2,
-      fillColor: ciftYonlu ? '#e67e22' : '#f1c40f',
-      fillOpacity: 0.85
+    L.marker([v.lat, v.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="
+          width: 11px; height: 11px;
+          background: ${renk};
+          border: 2px solid #0f1923;
+          transform: rotate(45deg);
+          box-sizing: border-box;
+        "></div>`,
+        iconSize: [11, 11],
+        iconAnchor: [5, 5]
+      })
     })
     .bindPopup(`
-      <b>Vana ${v.isaretci_no}</b> ${v.hat_id ? '' : '(hat atanmadı)'}<br>
+      <b>Vana ${v.isaretci_no}</b> ${grup.some(x => x.hat_id) ? '' : '(hat atanmadı)'}<br>
       ${satirlar}<br>
       Toplam: <b>${toplamF} fıskiye</b><br>
       Ekim yönü: ${v.ekim_yonu_derece}°<br>
       ${grup.some(x => x.notlar) ? '📝 ' + grup.filter(x => x.notlar).map(x => x.notlar).join(' | ') : ''}
     `)
     .bindTooltip(String(v.isaretci_no), {
-      permanent: true, direction: 'top', offset: [0, -6],
+      permanent: true, direction: 'top', offset: [0, -7],
       className: 'vana-etiket'
     })
     .addTo(harita)
