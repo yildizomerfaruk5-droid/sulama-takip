@@ -128,6 +128,25 @@ export function haritaOlustur(elementId, bolge = null) {
   harita.on('overlayadd', e => tercihKaydet(e.name, true))
   harita.on('overlayremove', e => tercihKaydet(e.name, false))
 
+  // ── GÖRÜNÜMÜ SIFIRLA BUTONU (kuyuya ortala) ──
+  const sifirlaKontrol = L.control({ position: 'topleft' })
+  sifirlaKontrol.onAdd = () => {
+    const btn = L.DomUtil.create('button', 'harita-sifirla-btn')
+    btn.innerHTML = '🎯'
+    btn.title = 'Görünümü sıfırla — kuyuya ortala'
+    btn.type = 'button'
+    L.DomEvent.on(btn, 'click', (e) => {
+      L.DomEvent.stop(e)
+      if (kayseriSahasi) {
+        harita.setView(KUYU, 15)
+      } else if (bolge?.merkez_lat != null) {
+        harita.setView([bolge.merkez_lat, bolge.merkez_lng], bolge.varsayilan_zoom || 15)
+      }
+    })
+    return btn
+  }
+  sifirlaKontrol.addTo(harita)
+
   if (!kayseriSahasi) return harita
 
   // Parselleri çiz
