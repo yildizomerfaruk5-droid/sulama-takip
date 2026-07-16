@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
-import { haritaOlustur, hatlariHaritayaCiz } from './harita.js'
+import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
 
 let sistemDurumu = null
@@ -100,6 +100,7 @@ export async function viewerRender() {
   if (haritaEl) {
     haritaOlustur('harita', bolge)
     hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
+    vanalariHaritayaCiz(bolge?.id)
   }
 
   if (acik) viewerSayacBaslat()

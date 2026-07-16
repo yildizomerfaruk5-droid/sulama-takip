@@ -220,3 +220,60 @@ export function koordinatSeciciBaslat() {
       .openPopup()
   })
 }
+// ── VANALAR (KML saha verisi) ──
+export async function vanalariHaritayaCiz(bolgeId = null) {
+  if (!harita) return
+
+  let sorgu = supabase
+    .from('vanalar')
+    .select('*')
+    .order('isaretci_no')
+
+  if (bolgeId) sorgu = sorgu.eq('bolge_id', bolgeId)
+
+  const { data: vanalar, error } = await sorgu
+  if (error) {
+    console.error('Vana hatası:', error.message)
+    return
+  }
+  if (!vanalar || vanalar.length === 0) return
+
+  // Aynı konumda alt+üst iki kayıt olabilir; konum başına grupla
+  const gruplar = {}
+  vanalar.forEach(v => {
+    const anahtar = `${v.lat},${v.lng}`
+    if (!gruplar[anahtar]) gruplar[anahtar] = []
+    gruplar[anahtar].push(v)
+  })
+
+  Object.values(gruplar).forEach(grup => {
+    const v = grup[0]
+    const ciftYonlu = grup.length > 1
+    const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
+
+    const satirlar = grup.map(x => `
+      ${x.yon ? `<b>${x.yon === 'alt' ? 'Alt' : 'Üst'}</b> (${x.parsel || '-'}):` : `Parsel: ${x.parsel || '-'}`}
+      ${x.fiskiye_sayisi} fıskiye
+    `).join('<br>')
+
+    L.circleMarker([v.lat, v.lng], {
+      radius: 6,
+      color: ciftYonlu ? '#e67e22' : '#f1c40f',
+      weight: 2,
+      fillColor: ciftYonlu ? '#e67e22' : '#f1c40f',
+      fillOpacity: 0.85
+    })
+    .bindPopup(`
+      <b>Vana ${v.isaretci_no}</b> ${v.hat_id ? '' : '(hat atanmadı)'}<br>
+      ${satirlar}<br>
+      Toplam: <b>${toplamF} fıskiye</b><br>
+      Ekim yönü: ${v.ekim_yonu_derece}°<br>
+      ${grup.some(x => x.notlar) ? '📝 ' + grup.filter(x => x.notlar).map(x => x.notlar).join(' | ') : ''}
+    `)
+    .bindTooltip(String(v.isaretci_no), {
+      permanent: true, direction: 'top', offset: [0, -6],
+      className: 'vana-etiket'
+    })
+    .addTo(harita)
+  })
+}

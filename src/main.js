@@ -5,7 +5,7 @@ import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { popupHTML, popupEventleriEkle } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
-import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat } from './harita.js'
+import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir, profilGetir } from './bolge.js'
 
 
@@ -77,6 +77,7 @@ async function render() {
   if (haritaEl) {
     haritaOlustur('harita', aktifBolge)
     hatlariHaritayaCiz(sistemDurumu, tamamlananlar, aktifBolge.id)
+    vanalariHaritayaCiz(aktifBolge.id)
     koordinatSeciciBaslat()
   }
   girisGecmisiniGetir().then(kayitlar => {

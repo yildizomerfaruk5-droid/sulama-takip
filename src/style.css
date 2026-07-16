@@ -249,3 +249,15 @@ body {
   z-index: 1;
   position: relative;
 }
+/* Vana numara etiketi (harita) */
+.vana-etiket {
+  background: rgba(15, 25, 35, 0.85);
+  border: 1px solid #f1c40f;
+  border-radius: 4px;
+  color: #f1c40f;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px;
+  box-shadow: none;
+}
+.vana-etiket::before { display: none; }
