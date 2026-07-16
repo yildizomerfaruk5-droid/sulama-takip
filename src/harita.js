@@ -2,6 +2,7 @@ import L from 'leaflet'
 import { supabase } from './supabase.js'
 
 let harita = null
+let katmanlar = null
 
 // DMS -> ondalık çevirici
 function dms(deg, min, sec) { return deg + min/60 + sec/3600 }
@@ -84,6 +85,45 @@ export function haritaOlustur(elementId, bolge = null) {
     maxZoom: 21
   }).addTo(harita)
 
+  // ── KATMAN SİSTEMİ ──
+  katmanlar = {
+    parseller: L.layerGroup(),
+    anaBoru: L.layerGroup(),
+    kuyu: L.layerGroup(),
+    hatSeritleri: L.layerGroup(),
+    vanalar: L.layerGroup(),
+    fiskiyeler: L.layerGroup()
+  }
+
+  const katmanEtiketleri = {
+    'Parseller': katmanlar.parseller,
+    'Ana boru': katmanlar.anaBoru,
+    'Su kuyusu': katmanlar.kuyu,
+    'Hat şeritleri': katmanlar.hatSeritleri,
+    'Vanalar': katmanlar.vanalar,
+    'Fıskiyeler': katmanlar.fiskiyeler
+  }
+
+  // Kayıtlı tercihleri uygula (varsayılan: hepsi açık)
+  const kayitliTercih = JSON.parse(localStorage.getItem('harita_katmanlari') || '{}')
+  Object.entries(katmanEtiketleri).forEach(([ad, grup]) => {
+    if (kayitliTercih[ad] !== false) grup.addTo(harita)
+  })
+
+  L.control.layers(null, katmanEtiketleri, {
+    collapsed: true,
+    position: 'topright'
+  }).addTo(harita)
+
+  // Katman tercihini hatırla
+  const tercihKaydet = (ad, acik) => {
+    const t = JSON.parse(localStorage.getItem('harita_katmanlari') || '{}')
+    t[ad] = acik
+    localStorage.setItem('harita_katmanlari', JSON.stringify(t))
+  }
+  harita.on('overlayadd', e => tercihKaydet(e.name, true))
+  harita.on('overlayremove', e => tercihKaydet(e.name, false))
+
   if (!kayseriSahasi) return harita
 
   // Parselleri çiz
@@ -94,7 +134,7 @@ export function haritaOlustur(elementId, bolge = null) {
       weight: 2,
       fillColor: '#3fae4a',
       fillOpacity: 0.25
-    }).addTo(harita)
+    }).addTo(katmanlar.parseller)
     poly.bindPopup(`<b>${p.id}</b><br>Alan: ${p.alan}`)
 
     const center = poly.getBounds().getCenter()
@@ -104,7 +144,7 @@ export function haritaOlustur(elementId, bolge = null) {
         html: `<div style="color:#fff;font-weight:700;font-size:12px;text-shadow:0 0 4px #000,0 0 4px #000;">${p.id}</div>`,
         iconSize: [60, 20]
       })
-    }).addTo(harita)
+    }).addTo(katmanlar.parseller)
   })
 
   // Ana boru hatlarını çiz
@@ -114,7 +154,7 @@ export function haritaOlustur(elementId, bolge = null) {
       weight: 5,
       opacity: 0.9,
       dashArray: hat.kesikli ? '8,6' : null
-    }).addTo(harita).bindPopup(hat.ad)
+    }).addTo(katmanlar.anaBoru).bindPopup(hat.ad)
   })
 
   // Sulama kuyusu
@@ -124,7 +164,7 @@ export function haritaOlustur(elementId, bolge = null) {
     weight: 3,
     fillColor: '#003344',
     fillOpacity: 0.9
-  }).addTo(harita).bindPopup('<b>Sulama Kuyusu</b>')
+  }).addTo(katmanlar.kuyu).bindPopup('<b>Sulama Kuyusu</b>')
 
   // Vana noktaları
   VANA_NOKTALARI.forEach(v => {
@@ -134,7 +174,7 @@ export function haritaOlustur(elementId, bolge = null) {
       weight: 2,
       fillColor: '#ff5252',
       fillOpacity: 0.9
-    }).addTo(harita).bindPopup(v.ad)
+    }).addTo(katmanlar.anaBoru).bindPopup(v.ad)
   })
 
   // Tüm içeriği kapsayacak şekilde odaklan
@@ -183,7 +223,7 @@ export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = [], bolge
       Zona: ${hat.zonalar?.ad || '-'}<br>
       Fıskiye: ${hat.fiskiye_sayisi || '-'}
     `)
-    .addTo(harita)
+    .addTo(katmanlar.hatSeritleri)
   })
 }
 
@@ -325,7 +365,7 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
       permanent: true, direction: 'top', offset: [0, -7],
       className: 'vana-etiket'
     })
-    .addTo(harita)
+    .addTo(katmanlar.vanalar)
   })
 }
 
@@ -392,7 +432,7 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
     fillOpacity: 0.8
   })
   .bindPopup(`${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
-  .addTo(harita)
+  .addTo(katmanlar.fiskiyeler)
 }
 
 // Fiskiye noktalari: vanadan ekim yonunde 10m arayla, parsel disina tasanlar cizilmez
