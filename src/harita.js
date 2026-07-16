@@ -220,7 +220,46 @@ export function koordinatSeciciBaslat() {
       .openPopup()
   })
 }
-// ── VANALAR (KML saha verisi) ──
+// ── VANALAR VE FISKIYELER (KML saha verisi) ──
+
+// Bir noktadan pusula yonunde (derece) metre kadar otelenmis koordinat
+function metreOtele(lat, lng, yonDerece, metre) {
+  const R = 6378137
+  const b = yonDerece * Math.PI / 180
+  const dLat = (metre * Math.cos(b)) / R * (180 / Math.PI)
+  const dLng = (metre * Math.sin(b)) / (R * Math.cos(lat * Math.PI / 180)) * (180 / Math.PI)
+  return [lat + dLat, lng + dLng]
+}
+
+// Iki nokta arasi pusula yonu (derece)
+function yonHesapla(lat1, lng1, lat2, lng2) {
+  const dLat = lat2 - lat1
+  const dLng = (lng2 - lng1) * Math.cos(lat1 * Math.PI / 180)
+  return (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360
+}
+
+// Nokta poligon icinde mi? (ray casting; poligon [lon,lat] dizisi)
+function poligonIcinde(lat, lng, coords) {
+  let icinde = false
+  for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+    const xi = coords[i][0], yi = coords[i][1]
+    const xj = coords[j][0], yj = coords[j][1]
+    if (((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      icinde = !icinde
+    }
+  }
+  return icinde
+}
+
+// Vananin parsel bilgisine gore izinli poligonlar ('119/7-119/6' -> ikisi de)
+function parselPoligonlari(parsel) {
+  if (!parsel) return []
+  return PARSELLER.filter(p => parsel.includes(p.id)).map(p => p.coords)
+}
+
+const FISKIYE_ARALIK = 10 // metre
+
 export async function vanalariHaritayaCiz(bolgeId = null) {
   if (!harita) return
 
@@ -238,7 +277,9 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   }
   if (!vanalar || vanalar.length === 0) return
 
-  // Ayni konumda alt+ust iki kayit olabilir; konum basina grupla
+  fiskiyeleriCiz(vanalar)
+
+  // ── Vana isaretleri (baklava ikon) ──
   const gruplar = {}
   vanalar.forEach(v => {
     const anahtar = `${v.lat},${v.lng}`
@@ -283,5 +324,59 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
       className: 'vana-etiket'
     })
     .addTo(harita)
+  })
+}
+
+// Fiskiye noktalari: vanadan ekim yonunde 10m arayla, parsel disina tasanlar cizilmez
+function fiskiyeleriCiz(vanalar) {
+  const fRenderer = L.canvas({ padding: 0.5 })
+
+  vanalar.forEach(v => {
+    if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
+
+    // Sulama yonu: ust kayitlar ekim yonunun tersine akar (60 -> 240)
+    const yon = v.yon === 'ust'
+      ? (v.ekim_yonu_derece + 180) % 360
+      : v.ekim_yonu_derece
+
+    const poligonlar = parselPoligonlari(v.parsel)
+
+    // Siralar: [baslangicKaydirma(null=vana ustu), adet]
+    let siralar = [[null, v.fiskiye_sayisi]]
+
+    // Vana 1 ve 19 ozel dizilimi: ana borunun ucundan disari dogru yan siralar
+    if (v.yon === null && (v.isaretci_no === 1 || v.isaretci_no === 19)) {
+      const komsu = vanalar.find(x => x.isaretci_no === (v.isaretci_no === 1 ? 2 : 18))
+      if (komsu) {
+        const disariYon = yonHesapla(komsu.lat, komsu.lng, v.lat, v.lng)
+        siralar = v.isaretci_no === 1
+          ? [[null, 8], [[disariYon, 12], 5], [[disariYon, 24], 4]]
+          : [[null, 9], [[disariYon, 12], 7], [[disariYon, 24], 4]]
+      }
+    }
+
+    siralar.forEach(([kaydirma, adet]) => {
+      let b = [v.lat, v.lng]
+      if (kaydirma) b = metreOtele(v.lat, v.lng, kaydirma[0], kaydirma[1])
+
+      for (let i = 1; i <= adet; i++) {
+        const [fLat, fLng] = metreOtele(b[0], b[1], yon, i * FISKIYE_ARALIK)
+
+        // Parsel disina tasan fiskiyeleri cizme
+        if (poligonlar.length > 0 &&
+            !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
+          continue
+        }
+
+        L.circleMarker([fLat, fLng], {
+          renderer: fRenderer,
+          radius: 1.8,
+          stroke: false,
+          fillColor: '#00e5ff',
+          fillOpacity: 0.75,
+          interactive: false
+        }).addTo(harita)
+      }
+    })
   })
 }
