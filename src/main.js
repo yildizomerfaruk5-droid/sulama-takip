@@ -8,6 +8,7 @@ import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, gi
 import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir, profilGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
+import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
 
 
 let sayacInterval = null
@@ -76,6 +77,9 @@ async function render() {
 
       <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
       <div id="galeri-liste">Yükleniyor...</div>
+
+      <div class="gecmis-baslik">📊 İstatistikler</div>
+      <div id="istatistik-bolum">${istatistikHTML()}</div>
     </div>
   `
 
@@ -99,6 +103,8 @@ async function render() {
     const el = document.getElementById('galeri-liste')
     if (el) el.innerHTML = galeriHTML(kayitlar)
   })
+
+  istatistikVerileriGetir(aktifBolge.id).then(veri => istatistikCiz(veri))
 
   // Sayacı başlat
   if (sistemDurumu?.sistem_acik) {
@@ -363,16 +369,21 @@ window.hatAtla = async () => {
 
   const siradakiHat = tumHatlar.find(h => h.id === sistemDurumu.siradaki_hat_id)
 
-  // Mevcut aktif hattı tamamlandı kaydet
-  localStorage.removeItem(`hat_baslama_${sistemDurumu.aktif_hat_id}`)
+  // Mevcut aktif hattı tamamlandı kaydet — gerçek başlama zamanı ve süreyle
+  const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
+  const baslama = localStorage.getItem(baslamaKey) || new Date().toISOString()
+  localStorage.removeItem(baslamaKey)
+  const bitis = new Date().toISOString()
+  const sureDk = Math.max(0, Math.round((new Date(bitis) - new Date(baslama)) / 60000))
 
   await supabase
     .from('sulama_kayitlari')
     .insert({
       hat_id: sistemDurumu.aktif_hat_id,
       tur_id: sistemDurumu.aktif_tur_id,
-      baslangic_zamani: new Date().toISOString(),
-      bitis_zamani: new Date().toISOString(),
+      baslangic_zamani: baslama,
+      bitis_zamani: bitis,
+      sure_dakika: sureDk || null,
       durum: 'tamamlandi'
     })
 

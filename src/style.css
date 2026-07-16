@@ -300,3 +300,18 @@ body {
   font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Istatistik grafikleri */
+.ist-grafik-kutu {
+  background: #1a2634;
+  border: 1px solid #2c3e50;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.ist-grafik-baslik {
+  color: #5dade2;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}

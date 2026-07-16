@@ -4,6 +4,7 @@ import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
+import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -96,6 +97,9 @@ export async function viewerRender() {
 
       <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
       <div id="galeri-liste">Yükleniyor...</div>
+
+      <div class="gecmis-baslik">📊 İstatistikler</div>
+      <div id="istatistik-bolum">${istatistikHTML()}</div>
     </div>
   `
 
@@ -108,6 +112,8 @@ export async function viewerRender() {
     const el = document.getElementById('galeri-liste')
     if (el) el.innerHTML = galeriHTML(kayitlar)
   })
+
+  istatistikVerileriGetir(bolge?.id).then(veri => istatistikCiz(veri))
 
   const haritaEl = document.getElementById('harita')
   if (haritaEl) {
