@@ -327,12 +327,83 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   })
 }
 
+// Iki nokta arasi mesafe (metre)
+function mesafeM(lat1, lng1, lat2, lng2) {
+  const R = 6378137
+  const x = (lng2 - lng1) * Math.PI / 180 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180)
+  const y = (lat2 - lat1) * Math.PI / 180
+  return Math.sqrt(x * x + y * y) * R
+}
+
+// Vana 35: fiskiyeler 119/7'nin alt kenar cizgisi boyunca dizili
+function kenarBoyuncaNoktalar(vana, adet) {
+  const p = PARSELLER.find(x => x.id === '119/7')
+  if (!p) return []
+  const c = p.coords // [lon,lat]
+
+  // Vanaya en yakin kose
+  let enYakin = 0, enKucuk = Infinity
+  c.forEach((k, i) => {
+    const d = mesafeM(vana.lat, vana.lng, k[1], k[0])
+    if (d < enKucuk) { enKucuk = d; enYakin = i }
+  })
+
+  // Vanadan baslayip dizi sirasinda (kuzeydogu yonunde) kenari izleyen yol
+  const yol = [[vana.lat, vana.lng]]
+  for (let i = 1; i <= c.length; i++) {
+    const k = c[(enYakin + i) % c.length]
+    yol.push([k[1], k[0]])
+  }
+
+  // Yol boyunca 10m arayla nokta
+  const noktalar = []
+  let hedef = FISKIYE_ARALIK
+  let kat = 0
+  for (let sgm = 0; sgm < yol.length - 1 && noktalar.length < adet; sgm++) {
+    const [aLat, aLng] = yol[sgm]
+    const [bLat, bLng] = yol[sgm + 1]
+    const segU = mesafeM(aLat, aLng, bLat, bLng)
+    if (segU < 0.01) continue
+    while (hedef <= kat + segU && noktalar.length < adet) {
+      const t = (hedef - kat) / segU
+      noktalar.push([aLat + (bLat - aLat) * t, aLng + (bLng - aLng) * t])
+      hedef += FISKIYE_ARALIK
+    }
+    kat += segU
+  }
+  return noktalar
+}
+
+// Ortasi ekilmemis vanalar: alt sirada sondan 10 fiskiye 3 aralik (30m) ileri kayar
+const BOSLUKLU = { 33: 'alt', 34: 'alt' }
+
+function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
+  L.circleMarker([lat, lng], {
+    renderer,
+    radius: 2.5,
+    stroke: false,
+    fillColor: '#00e5ff',
+    fillOpacity: 0.8
+  })
+  .bindPopup(`${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
+  .addTo(harita)
+}
+
 // Fiskiye noktalari: vanadan ekim yonunde 10m arayla, parsel disina tasanlar cizilmez
 function fiskiyeleriCiz(vanalar) {
   const fRenderer = L.canvas({ padding: 0.5 })
 
   vanalar.forEach(v => {
     if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
+    const parselAd = v.parsel || '?'
+
+    // Vana 35: parsel kenari boyunca ozel dizilim
+    if (v.isaretci_no === 35) {
+      kenarBoyuncaNoktalar(v, v.fiskiye_sayisi).forEach((n, idx) => {
+        fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, fRenderer)
+      })
+      return
+    }
 
     // Sulama yonu: ust kayitlar ekim yonunun tersine akar (60 -> 240)
     const yon = v.yon === 'ust'
@@ -355,28 +426,30 @@ function fiskiyeleriCiz(vanalar) {
       }
     }
 
+    let siraNo = 0
     siralar.forEach(([kaydirma, adet]) => {
       let b = [v.lat, v.lng]
       if (kaydirma) b = metreOtele(v.lat, v.lng, kaydirma[0], kaydirma[1])
 
+      // Konum indeksleri: bosluklu vanalarda sondan 10 fiskiye 3 aralik ileri
+      const bosluklu = BOSLUKLU[v.isaretci_no] === v.yon
+      const konumlar = []
       for (let i = 1; i <= adet; i++) {
-        const [fLat, fLng] = metreOtele(b[0], b[1], yon, i * FISKIYE_ARALIK)
+        konumlar.push(bosluklu && i > adet - 10 ? i + 3 : i)
+      }
+
+      konumlar.forEach(ki => {
+        siraNo++
+        const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
 
         // Parsel disina tasan fiskiyeleri cizme
         if (poligonlar.length > 0 &&
             !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
-          continue
+          return
         }
 
-        L.circleMarker([fLat, fLng], {
-          renderer: fRenderer,
-          radius: 1.8,
-          stroke: false,
-          fillColor: '#00e5ff',
-          fillOpacity: 0.75,
-          interactive: false
-        }).addTo(harita)
-      }
+        fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, fRenderer)
+      })
     })
   })
 }
