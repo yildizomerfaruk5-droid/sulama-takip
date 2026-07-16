@@ -79,6 +79,10 @@ export function haritaOlustur(elementId, bolge = null) {
     zoomControl: true
   })
 
+  // Aktif sulama katmanı için yanıp sönen pane
+  harita.createPane('aktifSulama')
+  harita.getPane('aktifSulama').style.zIndex = 450
+
   // Uydu katmanı
  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
     attribution: 'Google Satellite',
@@ -262,9 +266,8 @@ export function koordinatSeciciBaslat() {
       .openPopup()
   })
 }
-// ── VANALAR VE FISKIYELER (KML saha verisi) ──
+// ── VANALAR VE FISKIYELER (KML saha verisi + canli durum renklendirme) ──
 
-// Bir noktadan pusula yonunde (derece) metre kadar otelenmis koordinat
 function metreOtele(lat, lng, yonDerece, metre) {
   const R = 6378137
   const b = yonDerece * Math.PI / 180
@@ -273,14 +276,12 @@ function metreOtele(lat, lng, yonDerece, metre) {
   return [lat + dLat, lng + dLng]
 }
 
-// Iki nokta arasi pusula yonu (derece)
 function yonHesapla(lat1, lng1, lat2, lng2) {
   const dLat = lat2 - lat1
   const dLng = (lng2 - lng1) * Math.cos(lat1 * Math.PI / 180)
   return (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360
 }
 
-// Nokta poligon icinde mi? (ray casting; poligon [lon,lat] dizisi)
 function poligonIcinde(lat, lng, coords) {
   let icinde = false
   for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
@@ -294,15 +295,172 @@ function poligonIcinde(lat, lng, coords) {
   return icinde
 }
 
-// Vananin parsel bilgisine gore izinli poligonlar ('119/7-119/6' -> ikisi de)
 function parselPoligonlari(parsel) {
   if (!parsel) return []
   return PARSELLER.filter(p => parsel.includes(p.id)).map(p => p.coords)
 }
 
-const FISKIYE_ARALIK = 10 // metre
+function mesafeM(lat1, lng1, lat2, lng2) {
+  const R = 6378137
+  const x = (lng2 - lng1) * Math.PI / 180 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180)
+  const y = (lat2 - lat1) * Math.PI / 180
+  return Math.sqrt(x * x + y * y) * R
+}
 
-export async function vanalariHaritayaCiz(bolgeId = null) {
+// Vana 35: fiskiyeler 119/7'nin alt kenar cizgisi boyunca dizili
+function kenarBoyuncaNoktalar(vana, adet, baslangicKaydirma = 0) {
+  const p = PARSELLER.find(x => x.id === '119/7')
+  if (!p) return []
+  const c = p.coords
+
+  let enYakin = 0, enKucuk = Infinity
+  c.forEach((k, i) => {
+    const d = mesafeM(vana.lat, vana.lng, k[1], k[0])
+    if (d < enKucuk) { enKucuk = d; enYakin = i }
+  })
+
+  const yol = [[vana.lat, vana.lng]]
+  for (let i = 1; i <= c.length; i++) {
+    const k = c[(enYakin + i) % c.length]
+    yol.push([k[1], k[0]])
+  }
+
+  const noktalar = []
+  let hedef = (baslangicKaydirma + 1) * FISKIYE_ARALIK
+  let kat = 0
+  for (let sgm = 0; sgm < yol.length - 1 && noktalar.length < adet; sgm++) {
+    const [aLat, aLng] = yol[sgm]
+    const [bLat, bLng] = yol[sgm + 1]
+    const segU = mesafeM(aLat, aLng, bLat, bLng)
+    if (segU < 0.01) continue
+    while (hedef <= kat + segU && noktalar.length < adet) {
+      const t = (hedef - kat) / segU
+      noktalar.push([aLat + (bLat - aLat) * t, aLng + (bLng - aLng) * t])
+      hedef += FISKIYE_ARALIK
+    }
+    kat += segU
+  }
+  return noktalar
+}
+
+const FISKIYE_ARALIK = 10 // metre
+const FISKIYE_KAPSAMA = 7 // metre — bir fiskiyenin suladigi tahmini yaricap
+
+// Ortasi ekilmemis vanalar: 16. fiskiyeden sonra 3 araliklik bosluk (33-34 ayni hizada)
+const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
+
+// Parsel sonuna kadar uzayan vanalar
+const UZAT = { 32: 'alt' }
+
+// Hat durumuna gore renkler (hat listesiyle ayni sistem)
+const HAT_RENK = {
+  aktif: '#2e86de',    // mavi — su anda sulaniyor (yanip soner)
+  tamam: '#26de81',    // yesil — bu turda sulandi
+  siradaki: '#f9ca24', // sari — siradaki hat
+  pasif: '#00e5ff'     // camgobegi — beklemede / hat atanmamis
+}
+
+function vanaHatDurumu(hatId, durum, tamamlananlar) {
+  if (!hatId) return 'pasif'
+  if ((tamamlananlar || []).includes(hatId)) return 'tamam'
+  if (!durum || !durum.sistem_acik) return 'pasif'
+  if (hatId === durum.aktif_hat_id) return 'aktif'
+  if (hatId === durum.siradaki_hat_id) return 'siradaki'
+  return 'pasif'
+}
+
+function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaCiz) {
+  // Sulanan alani boya (aktif/tamam/siradaki hatlarda)
+  if (kapsamaCiz) {
+    L.circle([lat, lng], {
+      renderer,
+      radius: FISKIYE_KAPSAMA,
+      stroke: false,
+      fillColor: renk,
+      fillOpacity: 0.22,
+      interactive: false
+    }).addTo(katmanlar.fiskiyeler)
+  }
+
+  L.circleMarker([lat, lng], {
+    renderer,
+    radius: 3,
+    stroke: false,
+    fillColor: renk,
+    fillOpacity: 0.9
+  })
+  .bindPopup(`${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
+  .addTo(katmanlar.fiskiyeler)
+}
+
+function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
+  const normalRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
+  const aktifRenderer = L.canvas({ padding: 0.5, tolerance: 10, pane: 'aktifSulama' })
+
+  vanalar.forEach(v => {
+    if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
+    const parselAd = v.parsel || '?'
+
+    const hatDurumu = vanaHatDurumu(v.hat_id, durum, tamamlananlar)
+    const renk = HAT_RENK[hatDurumu]
+    const renderer = hatDurumu === 'aktif' ? aktifRenderer : normalRenderer
+    const kapsamaCiz = hatDurumu !== 'pasif'
+
+    // Vana 35: parsel kenari boyunca, basta 4 pozisyon kaydirilmis
+    if (v.isaretci_no === 35) {
+      kenarBoyuncaNoktalar(v, v.fiskiye_sayisi, 4).forEach((n, idx) => {
+        fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, renderer, renk, kapsamaCiz)
+      })
+      return
+    }
+
+    const yon = v.yon === 'ust'
+      ? (v.ekim_yonu_derece + 180) % 360
+      : v.ekim_yonu_derece
+
+    const poligonlar = parselPoligonlari(v.parsel)
+
+    let siralar = [[null, v.fiskiye_sayisi]]
+    if (v.yon === null && (v.isaretci_no === 1 || v.isaretci_no === 19)) {
+      const komsu = vanalar.find(x => x.isaretci_no === (v.isaretci_no === 1 ? 2 : 18))
+      if (komsu) {
+        const disariYon = yonHesapla(komsu.lat, komsu.lng, v.lat, v.lng)
+        siralar = v.isaretci_no === 1
+          ? [[null, 8], [[disariYon, 12], 5], [[disariYon, 24], 4]]
+          : [[null, 9], [[disariYon, 12], 7], [[disariYon, 24], 4]]
+      }
+    }
+
+    let siraNo = 0
+    siralar.forEach(([kaydirma, adet]) => {
+      let b = [v.lat, v.lng]
+      if (kaydirma) b = metreOtele(v.lat, v.lng, kaydirma[0], kaydirma[1])
+
+      const bosluk = BOSLUKLU[v.isaretci_no]
+      const bosluklu = bosluk && bosluk.yon === v.yon
+      const cizimAdet = UZAT[v.isaretci_no] === v.yon ? 80 : adet
+
+      const konumlar = []
+      for (let i = 1; i <= cizimAdet; i++) {
+        konumlar.push(bosluklu && i > bosluk.sonra ? i + 3 : i)
+      }
+
+      konumlar.forEach(ki => {
+        const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
+
+        if (poligonlar.length > 0 &&
+            !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
+          return
+        }
+
+        siraNo++
+        fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, renderer, renk, kapsamaCiz)
+      })
+    })
+  })
+}
+
+export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, tamamlananlar = []) {
   if (!harita) return
 
   let sorgu = supabase
@@ -319,9 +477,9 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
   }
   if (!vanalar || vanalar.length === 0) return
 
-  fiskiyeleriCiz(vanalar)
+  fiskiyeleriCiz(vanalar, sistemDurumu, tamamlananlar)
 
-  // ── Vana isaretleri (baklava ikon) ──
+  // ── Vana isaretleri: su gecisi VAR = yesil, YOK = kirmizi ──
   const gruplar = {}
   vanalar.forEach(v => {
     const anahtar = `${v.lat},${v.lng}`
@@ -331,8 +489,8 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
 
   Object.values(gruplar).forEach(grup => {
     const v = grup[0]
-    const ciftYonlu = grup.length > 1
-    const renk = ciftYonlu ? '#e67e22' : '#f1c40f'
+    const akiyor = grup.some(x => vanaHatDurumu(x.hat_id, sistemDurumu, tamamlananlar) === 'aktif')
+    const renk = akiyor ? '#26de81' : '#e74c3c'
     const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
 
     const satirlar = grup.map(x => `
@@ -356,6 +514,7 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
     })
     .bindPopup(`
       <b>Vana ${v.isaretci_no}</b> ${grup.some(x => x.hat_id) ? '' : '(hat atanmadı)'}<br>
+      Su geçişi: <b style="color:${akiyor ? '#26de81' : '#e74c3c'}">${akiyor ? 'VAR ✅' : 'YOK ⛔'}</b><br>
       ${satirlar}<br>
       Toplam: <b>${toplamF} fıskiye</b><br>
       Ekim yönü: ${v.ekim_yonu_derece}°<br>
@@ -366,142 +525,5 @@ export async function vanalariHaritayaCiz(bolgeId = null) {
       className: 'vana-etiket'
     })
     .addTo(katmanlar.vanalar)
-  })
-}
-
-// Iki nokta arasi mesafe (metre)
-function mesafeM(lat1, lng1, lat2, lng2) {
-  const R = 6378137
-  const x = (lng2 - lng1) * Math.PI / 180 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180)
-  const y = (lat2 - lat1) * Math.PI / 180
-  return Math.sqrt(x * x + y * y) * R
-}
-
-// Vana 35: fiskiyeler 119/7'nin alt kenar cizgisi boyunca dizili
-function kenarBoyuncaNoktalar(vana, adet, baslangicKaydirma = 0) {
-  const p = PARSELLER.find(x => x.id === '119/7')
-  if (!p) return []
-  const c = p.coords // [lon,lat]
-
-  // Vanaya en yakin kose
-  let enYakin = 0, enKucuk = Infinity
-  c.forEach((k, i) => {
-    const d = mesafeM(vana.lat, vana.lng, k[1], k[0])
-    if (d < enKucuk) { enKucuk = d; enYakin = i }
-  })
-
-  // Vanadan baslayip dizi sirasinda (kuzeydogu yonunde) kenari izleyen yol
-  const yol = [[vana.lat, vana.lng]]
-  for (let i = 1; i <= c.length; i++) {
-    const k = c[(enYakin + i) % c.length]
-    yol.push([k[1], k[0]])
-  }
-
-  // Yol boyunca 10m arayla nokta
-  const noktalar = []
-  let hedef = (baslangicKaydirma + 1) * FISKIYE_ARALIK
-  let kat = 0
-  for (let sgm = 0; sgm < yol.length - 1 && noktalar.length < adet; sgm++) {
-    const [aLat, aLng] = yol[sgm]
-    const [bLat, bLng] = yol[sgm + 1]
-    const segU = mesafeM(aLat, aLng, bLat, bLng)
-    if (segU < 0.01) continue
-    while (hedef <= kat + segU && noktalar.length < adet) {
-      const t = (hedef - kat) / segU
-      noktalar.push([aLat + (bLat - aLat) * t, aLng + (bLng - aLng) * t])
-      hedef += FISKIYE_ARALIK
-    }
-    kat += segU
-  }
-  return noktalar
-}
-
-// Ortasi ekilmemis vanalar: alt sirada 16. fiskiyeden sonra 3 araliklik (30m) bosluk
-// (33 ve 34'un boslugu ayni hizada — tarladaki ekilmemis alan bitisik)
-const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
-
-// Parsel sonuna kadar uzayan vanalar (fiskiye sayisina bakilmaz, sinira kadar devam)
-const UZAT = { 32: 'alt' }
-
-function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
-  L.circleMarker([lat, lng], {
-    renderer,
-    radius: 3,
-    stroke: false,
-    fillColor: '#00e5ff',
-    fillOpacity: 0.8
-  })
-  .bindPopup(`${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
-  .addTo(katmanlar.fiskiyeler)
-}
-
-// Fiskiye noktalari: vanadan ekim yonunde 10m arayla, parsel disina tasanlar cizilmez
-function fiskiyeleriCiz(vanalar) {
-  const fRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
-
-  vanalar.forEach(v => {
-    if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
-    const parselAd = v.parsel || '?'
-
-    // Vana 35: parsel kenari boyunca ozel dizilim
-    if (v.isaretci_no === 35) {
-      // Basta 4 pozisyon bos (o fiskiyeler sonradan baglandi, dizilim 5. konumdan basliyor)
-      kenarBoyuncaNoktalar(v, v.fiskiye_sayisi, 4).forEach((n, idx) => {
-        fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, fRenderer)
-      })
-      return
-    }
-
-    // Sulama yonu: ust kayitlar ekim yonunun tersine akar (60 -> 240)
-    const yon = v.yon === 'ust'
-      ? (v.ekim_yonu_derece + 180) % 360
-      : v.ekim_yonu_derece
-
-    const poligonlar = parselPoligonlari(v.parsel)
-
-    // Siralar: [baslangicKaydirma(null=vana ustu), adet]
-    let siralar = [[null, v.fiskiye_sayisi]]
-
-    // Vana 1 ve 19 ozel dizilimi: ana borunun ucundan disari dogru yan siralar
-    if (v.yon === null && (v.isaretci_no === 1 || v.isaretci_no === 19)) {
-      const komsu = vanalar.find(x => x.isaretci_no === (v.isaretci_no === 1 ? 2 : 18))
-      if (komsu) {
-        const disariYon = yonHesapla(komsu.lat, komsu.lng, v.lat, v.lng)
-        siralar = v.isaretci_no === 1
-          ? [[null, 8], [[disariYon, 12], 5], [[disariYon, 24], 4]]
-          : [[null, 9], [[disariYon, 12], 7], [[disariYon, 24], 4]]
-      }
-    }
-
-    let siraNo = 0
-    siralar.forEach(([kaydirma, adet]) => {
-      let b = [v.lat, v.lng]
-      if (kaydirma) b = metreOtele(v.lat, v.lng, kaydirma[0], kaydirma[1])
-
-      // Konum indeksleri: bosluklu vanalarda sondan 10 fiskiye 3 aralik ileri
-      const bosluk = BOSLUKLU[v.isaretci_no]
-      const bosluklu = bosluk && bosluk.yon === v.yon
-
-      // Uzatilan vanalar: parsel sinirina kadar devam (ust limit 80 pozisyon)
-      const cizimAdet = UZAT[v.isaretci_no] === v.yon ? 80 : adet
-
-      const konumlar = []
-      for (let i = 1; i <= cizimAdet; i++) {
-        konumlar.push(bosluklu && i > bosluk.sonra ? i + 3 : i)
-      }
-
-      konumlar.forEach(ki => {
-        const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
-
-        // Parsel disina tasan fiskiyeleri cizme
-        if (poligonlar.length > 0 &&
-            !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
-          return
-        }
-
-        siraNo++
-        fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, fRenderer)
-      })
-    })
   })
 }

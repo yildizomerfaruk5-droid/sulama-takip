@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
@@ -56,6 +56,8 @@ export async function viewerRender() {
   const turNo = turBilgisi?.tur_no || '-'
   const zonaAd = turBilgisi?.zonalar?.ad || '-'
 
+  const calisanPanel = await calisanHatPaneliHTML(durum)
+
   app.innerHTML = `
     <div class="container">
       <div class="header">
@@ -80,6 +82,8 @@ export async function viewerRender() {
           <span class="value">${zonaAd}</span>
         ` : ''}
       </div>
+
+      ${calisanPanel}
 
       <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
 
@@ -109,7 +113,7 @@ export async function viewerRender() {
   if (haritaEl) {
     haritaOlustur('harita', bolge)
     hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
-    vanalariHaritayaCiz(bolge?.id)
+    vanalariHaritayaCiz(bolge?.id, sistemDurumu, tamamlananlar)
   }
 
   if (acik) viewerSayacBaslat()
@@ -176,7 +180,11 @@ function viewerSayacBaslat() {
     const dakika = Math.floor((gecenSn % 3600) / 60)
     const saniye = gecenSn % 60
 
-    el.textContent = `⏱ ${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
+    const sayacMetni = `${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
+    el.textContent = `⏱ ${sayacMetni}`
+
+    const panelEl = document.getElementById('panel-sayac')
+    if (panelEl) panelEl.textContent = sayacMetni
   }, 1000)
 }
 

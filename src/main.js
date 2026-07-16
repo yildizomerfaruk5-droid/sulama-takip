@@ -1,5 +1,5 @@
 import './style.css'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
@@ -57,10 +57,13 @@ async function render() {
     turBilgisi = tur
   }
 
+  const calisanPanel = await calisanHatPaneliHTML(durum)
+
   app.innerHTML = `
     <div class="container">
       ${header()}
       ${duruBanner(durum, turBilgisi)}
+      ${calisanPanel}
       ${butonlar(durum)}
       <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
       <div class="zona-grid">
@@ -81,7 +84,7 @@ async function render() {
   if (haritaEl) {
     haritaOlustur('harita', aktifBolge)
     hatlariHaritayaCiz(sistemDurumu, tamamlananlar, aktifBolge.id)
-    vanalariHaritayaCiz(aktifBolge.id)
+    vanalariHaritayaCiz(aktifBolge.id, sistemDurumu, tamamlananlar)
     koordinatSeciciBaslat()
   }
   girisGecmisiniGetir().then(kayitlar => {
@@ -563,7 +566,11 @@ function sayaciBaslat() {
     const dakika = Math.floor((gecenSn % 3600) / 60)
     const saniye = gecenSn % 60
 
-    el.textContent = `⏱ ${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
+    const sayacMetni = `${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
+    el.textContent = `⏱ ${sayacMetni}`
+
+    const panelEl = document.getElementById('panel-sayac')
+    if (panelEl) panelEl.textContent = sayacMetni
 
     // Süre kontrolü — aktif hattın varsayılan süresi doldu mu?
     const { data: aktifHat } = await supabase

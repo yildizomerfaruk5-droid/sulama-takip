@@ -66,3 +66,39 @@ export function sureyiFormatla(dakika) {
   if (dk === 0) return `${saat}sa`
   return `${saat}sa ${dk}dk`
 }
+
+// Calisan hatin anlik bilgi paneli (admin + viewer ust bolumu)
+export async function calisanHatPaneliHTML(durum) {
+  if (!durum?.sistem_acik || !durum.aktif_hat_id) return ''
+
+  const [{ data: hat }, { data: vanalar }] = await Promise.all([
+    supabase
+      .from('hatlar')
+      .select('*, zonalar(ad)')
+      .eq('id', durum.aktif_hat_id)
+      .maybeSingle(),
+    supabase
+      .from('vanalar')
+      .select('isaretci_no, fiskiye_sayisi')
+      .eq('hat_id', durum.aktif_hat_id)
+      .order('isaretci_no')
+  ])
+
+  if (!hat) return ''
+
+  const vanaNolar = [...new Set((vanalar || []).map(v => v.isaretci_no))].join(', ')
+  const fiskiyeToplam = (vanalar || []).reduce((t, v) => t + (v.fiskiye_sayisi || 0), 0)
+  const alanDekar = Math.round(fiskiyeToplam * 0.12 * 10) / 10 // fiskiye basina ~120 m2
+
+  return `
+    <div class="calisan-hat-panel">
+      <span class="chp-baslik">⚡ ÇALIŞAN HAT: Hat-${hat.hat_no}</span>
+      <span>${hat.zonalar?.ad || ''} ${hat.parsel_bilgisi ? '• ' + hat.parsel_bilgisi : ''}</span>
+      <span>Vanalar: <span class="chp-deger">${vanaNolar || '—'}</span></span>
+      <span>Fıskiye: <span class="chp-deger">${fiskiyeToplam || '—'}</span></span>
+      <span>Tahmini alan: <span class="chp-deger">~${alanDekar} dekar</span></span>
+      <span>Süre: <span class="chp-deger">${sureyiFormatla(hat.varsayilan_sure_dk)}</span></span>
+      <span>Geçen: <span class="chp-sayac" id="panel-sayac">--:--:--</span></span>
+    </div>
+  `
+}

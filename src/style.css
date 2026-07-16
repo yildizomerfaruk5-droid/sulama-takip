@@ -261,3 +261,42 @@ body {
   box-shadow: none;
 }
 .vana-etiket::before { display: none; }
+
+/* Aktif sulama katmani: yanip sonme */
+.leaflet-aktifSulama-pane {
+  animation: sulamaYanipSonme 1.6s ease-in-out infinite;
+}
+@keyframes sulamaYanipSonme {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Calisan hat paneli */
+.calisan-hat-panel {
+  background: linear-gradient(90deg, #12314f, #1a2634);
+  border: 1px solid #2e86de;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  font-size: 13px;
+  color: #bdc3c7;
+}
+.calisan-hat-panel .chp-baslik {
+  color: #5dade2;
+  font-weight: bold;
+  font-size: 14px;
+}
+.calisan-hat-panel .chp-deger {
+  color: #e0e0e0;
+  font-weight: bold;
+}
+.calisan-hat-panel .chp-sayac {
+  color: #2e86de;
+  font-weight: bold;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
