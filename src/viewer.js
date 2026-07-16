@@ -3,6 +3,7 @@ import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
+import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -88,12 +89,20 @@ export async function viewerRender() {
 
       <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
       <div id="gecmis-liste">Yükleniyor...</div>
+
+      <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
+      <div id="galeri-liste">Yükleniyor...</div>
     </div>
   `
 
   gecmisKayitlariGetir(bolge?.id).then(kayitlar => {
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
+  })
+
+  galeriKayitlariGetir(bolge?.id).then(kayitlar => {
+    const el = document.getElementById('galeri-liste')
+    if (el) el.innerHTML = galeriHTML(kayitlar)
   })
 
   const haritaEl = document.getElementById('harita')

@@ -7,6 +7,7 @@ import { popupHTML, popupEventleriEkle } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
 import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir, profilGetir } from './bolge.js'
+import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 
 
 let sayacInterval = null
@@ -69,6 +70,9 @@ async function render() {
       <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
       <div id="giris-gecmisi-liste">Yükleniyor...</div>
       <div id="gecmis-liste">Yükleniyor...</div>
+
+      <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
+      <div id="galeri-liste">Yükleniyor...</div>
     </div>
   `
 
@@ -86,6 +90,11 @@ async function render() {
   })
     const el = document.getElementById('gecmis-liste')
     if (el) el.innerHTML = gecmisHTML(kayitlar)
+  })
+
+  galeriKayitlariGetir(aktifBolge.id).then(kayitlar => {
+    const el = document.getElementById('galeri-liste')
+    if (el) el.innerHTML = galeriHTML(kayitlar)
   })
 
   // Sayacı başlat
