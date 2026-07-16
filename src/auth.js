@@ -41,18 +41,22 @@ export async function girisGecmisiniGetir() {
 export function loginHTML() {
   return `
     <div style="
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #0f1923;
+      padding: 20px;
+      box-sizing: border-box;
     ">
       <div style="
         background: #1a2634;
         border: 1px solid #2c3e50;
         border-radius: 12px;
-        padding: 40px;
-        width: 360px;
+        padding: 28px 24px;
+        width: 100%;
+        max-width: 360px;
+        box-sizing: border-box;
       ">
         <h1 style="
           color: #5dade2;
@@ -77,12 +81,15 @@ export function loginHTML() {
             placeholder="admin@example.com"
             style="
               width: 100%;
+              min-height: 48px;
               padding: 10px 14px;
               background: #0f1923;
               border: 1px solid #2c3e50;
-              border-radius: 6px;
+              border-radius: 8px;
               color: #e0e0e0;
-              font-size: 14px;
+              /* 16px: iOS Safari daha kucuk yazili alana odaklaninca
+                 sayfayi otomatik yakinlastirir — 16px bunu engeller */
+              font-size: 16px;
               outline: none;
               box-sizing: border-box;
             "
@@ -99,28 +106,32 @@ export function loginHTML() {
             placeholder="••••••••"
             style="
               width: 100%;
+              min-height: 48px;
               padding: 10px 14px;
               background: #0f1923;
               border: 1px solid #2c3e50;
-              border-radius: 6px;
+              border-radius: 8px;
               color: #e0e0e0;
-              font-size: 14px;
+              /* 16px: iOS Safari daha kucuk yazili alana odaklaninca
+                 sayfayi otomatik yakinlastirir — 16px bunu engeller */
+              font-size: 16px;
               outline: none;
               box-sizing: border-box;
             "
           />
         </div>
 
-        <button 
+        <button
           onclick="loginYap()"
           style="
             width: 100%;
+            min-height: 48px;
             padding: 12px;
             background: #2e86de;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             color: #fff;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
           "

@@ -60,6 +60,12 @@ const VANA_NOKTALARI = [
   { konum: [dms(38,37,42.7), dms(36,14,44.1)], ad: "Vana 3 - Ayrım Noktası" },
 ]
 
+// Harita gizli bir kapsayicida olusturulursa Leaflet boyutunu 0 olcer ve karolar
+// eksik cizilir. Sekmesi gorunur olunca yeniden olcmesi gerekir.
+export function haritaBoyutuTazele() {
+  harita?.invalidateSize()
+}
+
 export function haritaOlustur(elementId, bolge = null) {
   if (harita) {
     harita.remove()

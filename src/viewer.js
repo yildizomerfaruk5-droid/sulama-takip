@@ -1,10 +1,11 @@
 import { supabase } from './supabase.js'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, sayacFormatla, calisanHatPaneliHTML } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
+import { ROL_SEKMELERI, sekmeCubuguHTML, panelHTML, sekmeDegistir, sekmeDogrula } from './kabuk.js'
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -59,49 +60,68 @@ export async function viewerRender() {
 
   const calisanPanel = await calisanHatPaneliHTML(durum)
 
+  const sekmeler = ROL_SEKMELERI.viewer
+  sekmeDogrula(sekmeler)
+
   app.innerHTML = `
-    <div class="container">
-      <div class="header">
-        <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
-        <div style="display:flex; align-items:center; gap:16px;">
+    <div class="uygulama">
+      <header class="header">
+        <h1>🌾 SULAMA TAKİP</h1>
+        <div class="header-sag">
           ${bolge ? `<div class="meta" style="color:#5dade2;">📍 ${bolge.ad}</div>` : ''}
-          <div class="meta">${new Date().toLocaleDateString('tr-TR', {
+          <div class="meta meta-tarih">${new Date().toLocaleDateString('tr-TR', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
           })}</div>
         </div>
-      </div>
+      </header>
 
-      <div class="durum-banner">
-        <span class="label">Sistem:</span>
-        <span class="value" style="color: ${acik ? '#26de81' : '#ff4757'}">
-          ${acik ? '● AKTİF' : '● KAPALI'}
-        </span>
-        ${acik ? `
-          <span class="label">Aktif Tur:</span>
-          <span class="value">${turNo}. Su</span>
-          <span class="label">Zona:</span>
-          <span class="value">${zonaAd}</span>
-        ` : ''}
-      </div>
+      <main class="icerik">
+        <div class="container">
+          ${panelHTML('simdi', `
+            <div class="durum-banner">
+              <span class="label">Sistem:</span>
+              <span class="value" style="color: ${acik ? '#26de81' : '#ff4757'}">
+                ${acik ? '● AKTİF' : '● KAPALI'}
+              </span>
+              ${acik ? `
+                <span class="label">Aktif Tur:</span>
+                <span class="value">${turNo}. Su</span>
+                <span class="label">Zona:</span>
+                <span class="value">${zonaAd}</span>
+              ` : ''}
+            </div>
 
-      ${calisanPanel}
+            ${calisanPanel}
 
-      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
+            <div class="zona-grid">
+              ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
+            </div>
+          `)}
 
-      <div class="zona-grid">
-        ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
-      </div>
+          ${panelHTML('harita', '<div id="harita"></div>')}
 
-      <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
-      <div id="gecmis-liste">Yükleniyor...</div>
+          ${panelHTML('gecmis', `
+            <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
+            <div id="gecmis-liste">Yükleniyor...</div>
 
-      <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
-      <div id="galeri-liste">Yükleniyor...</div>
+            <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
+            <div id="galeri-liste">Yükleniyor...</div>
 
-      <div class="gecmis-baslik">📊 İstatistikler</div>
-      <div id="istatistik-bolum">${istatistikHTML()}</div>
+            <div class="gecmis-baslik">📊 İstatistikler</div>
+            <div id="istatistik-bolum">${istatistikHTML()}</div>
+          `)}
+        </div>
+      </main>
+      ${sekmeCubuguHTML(sekmeler)}
     </div>
   `
+
+  const haritaEl = document.getElementById('harita')
+  if (haritaEl) {
+    haritaOlustur('harita', bolge)
+    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
+    vanalariHaritayaCiz(bolge?.id, sistemDurumu, tamamlananlar)
+  }
 
   gecmisKayitlariGetir(bolge?.id).then(kayitlar => {
     const el = document.getElementById('gecmis-liste')
@@ -114,13 +134,6 @@ export async function viewerRender() {
   })
 
   istatistikVerileriGetir(bolge?.id).then(veri => istatistikCiz(veri))
-
-  const haritaEl = document.getElementById('harita')
-  if (haritaEl) {
-    haritaOlustur('harita', bolge)
-    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
-    vanalariHaritayaCiz(bolge?.id, sistemDurumu, tamamlananlar)
-  }
 
   if (acik) viewerSayacBaslat()
   else if (sayacInterval) clearInterval(sayacInterval)
@@ -171,23 +184,15 @@ function viewerSayacBaslat() {
       return
     }
 
+    // Başlangıç veritabanından gelir — görüntüleyici de aynı sayacı görür.
+    // Viewer salt okunurdur: eksik başlangıç yazmaz, otomatik geçiş tetiklemez.
+    const baslama = sistemDurumu.aktif_hat_baslangic
+    if (!baslama) return
+
+    const sayacMetni = sayacFormatla(Date.now() - new Date(baslama).getTime())
+
     const el = document.getElementById(`vsayac-${sistemDurumu.aktif_hat_id}`)
-    if (!el) return
-
-    const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
-    let baslama = localStorage.getItem(baslamaKey)
-    if (!baslama) {
-      baslama = new Date().toISOString()
-      localStorage.setItem(baslamaKey, baslama)
-    }
-
-    const gecenSn = Math.floor((Date.now() - new Date(baslama).getTime()) / 1000)
-    const saat = Math.floor(gecenSn / 3600)
-    const dakika = Math.floor((gecenSn % 3600) / 60)
-    const saniye = gecenSn % 60
-
-    const sayacMetni = `${String(saat).padStart(2,'0')}:${String(dakika).padStart(2,'0')}:${String(saniye).padStart(2,'0')}`
-    el.textContent = `⏱ ${sayacMetni}`
+    if (el) el.textContent = `⏱ ${sayacMetni}`
 
     const panelEl = document.getElementById('panel-sayac')
     if (panelEl) panelEl.textContent = sayacMetni

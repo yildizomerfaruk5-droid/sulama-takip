@@ -58,6 +58,15 @@ export function hatDurumuBelirle(hat, sistemDurumu, tamamlananlar = []) {
   return 'pasif'
 }
 
+// Gecen sureyi "01:23:45" bicimine cevirir
+export function sayacFormatla(gecenMs) {
+  const gecenSn = Math.max(0, Math.floor(gecenMs / 1000))
+  const saat = Math.floor(gecenSn / 3600)
+  const dakika = Math.floor((gecenSn % 3600) / 60)
+  const saniye = gecenSn % 60
+  return `${String(saat).padStart(2, '0')}:${String(dakika).padStart(2, '0')}:${String(saniye).padStart(2, '0')}`
+}
+
 export function sureyiFormatla(dakika) {
   if (!dakika) return '-'
   const saat = Math.floor(dakika / 60)
