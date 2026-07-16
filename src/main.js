@@ -722,3 +722,12 @@ window.bolgeDegistir = (bolgeId) => {
 window.addEventListener('DOMContentLoaded', () => {
   uygulamaBaslat()
 })
+
+// ── PWA: Service Worker kaydı ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(e =>
+      console.error('Service worker kaydedilemedi:', e)
+    )
+  })
+}
