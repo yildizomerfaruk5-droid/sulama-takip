@@ -374,8 +374,9 @@ function kenarBoyuncaNoktalar(vana, adet, baslangicKaydirma = 0) {
   return noktalar
 }
 
-// Ortasi ekilmemis vanalar: alt sirada sondan 10 fiskiye 3 aralik (30m) ileri kayar
-const BOSLUKLU = { 33: 'alt', 34: 'alt' }
+// Ortasi ekilmemis vanalar: alt sirada 16. fiskiyeden sonra 3 araliklik (30m) bosluk
+// (33 ve 34'un boslugu ayni hizada — tarladaki ekilmemis alan bitisik)
+const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
 
 function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer) {
   L.circleMarker([lat, lng], {
@@ -433,21 +434,19 @@ function fiskiyeleriCiz(vanalar) {
       if (kaydirma) b = metreOtele(v.lat, v.lng, kaydirma[0], kaydirma[1])
 
       // Konum indeksleri: bosluklu vanalarda sondan 10 fiskiye 3 aralik ileri
-      const bosluklu = BOSLUKLU[v.isaretci_no] === v.yon
+      const bosluk = BOSLUKLU[v.isaretci_no]
+      const bosluklu = bosluk && bosluk.yon === v.yon
       const konumlar = []
       for (let i = 1; i <= adet; i++) {
-        const kaydirildi = bosluklu && i > adet - 10
-        konumlar.push([kaydirildi ? i + 3 : i, kaydirildi])
+        konumlar.push(bosluklu && i > bosluk.sonra ? i + 3 : i)
       }
 
-      konumlar.forEach(([ki, kaydirildi]) => {
+      konumlar.forEach(ki => {
         siraNo++
         const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
 
         // Parsel disina tasan fiskiyeleri cizme
-        // (kaydirilan son 10 haric: onlar gercekte tarla sonuna kadar var,
-        //  poligon hassasiyeti yuzunden kirpilmamali)
-        if (!kaydirildi && poligonlar.length > 0 &&
+        if (poligonlar.length > 0 &&
             !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
           return
         }
