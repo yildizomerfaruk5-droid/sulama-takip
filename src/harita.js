@@ -336,7 +336,7 @@ function mesafeM(lat1, lng1, lat2, lng2) {
 }
 
 // Vana 35: fiskiyeler 119/7'nin alt kenar cizgisi boyunca dizili
-function kenarBoyuncaNoktalar(vana, adet) {
+function kenarBoyuncaNoktalar(vana, adet, baslangicKaydirma = 0) {
   const p = PARSELLER.find(x => x.id === '119/7')
   if (!p) return []
   const c = p.coords // [lon,lat]
@@ -357,7 +357,7 @@ function kenarBoyuncaNoktalar(vana, adet) {
 
   // Yol boyunca 10m arayla nokta
   const noktalar = []
-  let hedef = FISKIYE_ARALIK
+  let hedef = (baslangicKaydirma + 1) * FISKIYE_ARALIK
   let kat = 0
   for (let sgm = 0; sgm < yol.length - 1 && noktalar.length < adet; sgm++) {
     const [aLat, aLng] = yol[sgm]
@@ -399,7 +399,8 @@ function fiskiyeleriCiz(vanalar) {
 
     // Vana 35: parsel kenari boyunca ozel dizilim
     if (v.isaretci_no === 35) {
-      kenarBoyuncaNoktalar(v, v.fiskiye_sayisi).forEach((n, idx) => {
+      // Basta 4 pozisyon bos (o fiskiyeler sonradan baglandi, dizilim 5. konumdan basliyor)
+      kenarBoyuncaNoktalar(v, v.fiskiye_sayisi, 4).forEach((n, idx) => {
         fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, fRenderer)
       })
       return
@@ -435,15 +436,18 @@ function fiskiyeleriCiz(vanalar) {
       const bosluklu = BOSLUKLU[v.isaretci_no] === v.yon
       const konumlar = []
       for (let i = 1; i <= adet; i++) {
-        konumlar.push(bosluklu && i > adet - 10 ? i + 3 : i)
+        const kaydirildi = bosluklu && i > adet - 10
+        konumlar.push([kaydirildi ? i + 3 : i, kaydirildi])
       }
 
-      konumlar.forEach(ki => {
+      konumlar.forEach(([ki, kaydirildi]) => {
         siraNo++
         const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
 
         // Parsel disina tasan fiskiyeleri cizme
-        if (poligonlar.length > 0 &&
+        // (kaydirilan son 10 haric: onlar gercekte tarla sonuna kadar var,
+        //  poligon hassasiyeti yuzunden kirpilmamali)
+        if (!kaydirildi && poligonlar.length > 0 &&
             !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
           return
         }
