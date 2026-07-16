@@ -8,7 +8,8 @@ export async function gecmisKayitlariGetir(bolgeId = null) {
       hatlar!inner (hat_no, parsel_bilgisi, zona_id,
         zonalar!inner (ad, bolge_id)
       ),
-      turlar (tur_no)
+      turlar (tur_no),
+      gubre_uygulamalari (miktar, birim, olcek, gubreler (ad))
     `)
     .order('olusturma_zamani', { ascending: false })
     .limit(50)
@@ -58,6 +59,11 @@ export function gecmisHTML(kayitlar) {
           </div>
           ${k.ilac_gubre_notu ? `
             <div class="kayit-not">📝 ${k.ilac_gubre_notu}</div>
+          ` : ''}
+          ${(k.gubre_uygulamalari || []).length > 0 ? `
+            <div class="kayit-not">🧪 ${k.gubre_uygulamalari.map(g =>
+              `${g.gubreler?.ad || '?'}: ${g.miktar} ${g.birim}/${g.olcek}`
+            ).join(' &nbsp;•&nbsp; ')}</div>
           ` : ''}
         </div>
         <div class="kayit-sag">

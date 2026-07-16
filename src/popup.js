@@ -59,7 +59,7 @@ export function popupHTML(hat) {
             box-sizing: border-box;
           ">
             <option value="sulama">Sulama</option>
-            <option value="ilacлама">İlaçlama</option>
+            <option value="ilaclama">İlaçlama</option>
             <option value="gubreleme">Gübreleme</option>
             <option value="kombine">Kombine</option>
           </select>
@@ -80,6 +80,23 @@ export function popupHTML(hat) {
             resize: vertical;
             box-sizing: border-box;
           "></textarea>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+            Gübre Uygulaması
+          </label>
+          <div id="gubre-listesi"></div>
+          <button id="gubre-ekle-btn" type="button" style="
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            border: 1px dashed #2c3e50;
+            border-radius: 6px;
+            color: #5dade2;
+            font-size: 13px;
+            cursor: pointer;
+          ">+ Gübre Ekle</button>
         </div>
 
         <div style="margin-bottom:20px;">
@@ -129,7 +146,66 @@ export function popupHTML(hat) {
   `
 }
 
+let gubreSecenekleri = []
+
+function gubreSatirEkle() {
+  const liste = document.getElementById('gubre-listesi')
+  if (!liste || gubreSecenekleri.length === 0) return
+
+  const stil = `
+    padding: 8px 6px;
+    background: #0f1923;
+    border: 1px solid #2c3e50;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 13px;
+    box-sizing: border-box;
+  `
+  const satir = document.createElement('div')
+  satir.className = 'gubre-satir'
+  satir.style.cssText = 'display:flex; gap:6px; margin-bottom:8px; align-items:center;'
+  satir.innerHTML = `
+    <select class="gubre-ad" style="flex:2; min-width:0; ${stil}">
+      ${gubreSecenekleri.map(g => `
+        <option value="${g.id}" data-birim="${g.varsayilan_birim}">${g.ad}</option>
+      `).join('')}
+    </select>
+    <input class="gubre-miktar" type="number" min="0" step="0.1" placeholder="5" style="width:58px; ${stil}">
+    <select class="gubre-birim" style="width:70px; ${stil}">
+      <option value="litre">litre</option>
+      <option value="kg">kg</option>
+    </select>
+    <select class="gubre-olcek" style="width:76px; ${stil}">
+      <option value="dekar">/dekar</option>
+      <option value="hat">/hat</option>
+    </select>
+    <button type="button" class="gubre-sil" style="
+      background:none; border:none; color:#ff4757; font-size:16px; cursor:pointer; padding:2px;
+    ">✕</button>
+  `
+
+  // Gübre seçilince varsayılan birimi uygula (örn. 33 Nitrat -> kg)
+  const adSel = satir.querySelector('.gubre-ad')
+  const birimSel = satir.querySelector('.gubre-birim')
+  const birimUygula = () => { birimSel.value = adSel.selectedOptions[0].dataset.birim }
+  adSel.addEventListener('change', birimUygula)
+  birimUygula()
+
+  satir.querySelector('.gubre-sil').addEventListener('click', () => satir.remove())
+  liste.appendChild(satir)
+}
+
 export function popupEventleriEkle(hatId, turId) {
+  // Gübre seçeneklerini yükle
+  supabase
+    .from('gubreler')
+    .select('*')
+    .eq('aktif', true)
+    .order('sira_no')
+    .then(({ data }) => { gubreSecenekleri = data || [] })
+
+  document.getElementById('gubre-ekle-btn').addEventListener('click', gubreSatirEkle)
+
   // Kapatma butonları
   document.getElementById('popup-kapat-btn').addEventListener('click', () => {
     document.getElementById('popup-overlay')?.remove()
@@ -201,7 +277,7 @@ export async function popupKaydet(hatId, turId) {
   }
 
   // Kaydı ekle
-  const { error } = await supabase
+  const { data: kayit, error } = await supabase
     .from('sulama_kayitlari')
     .insert({
       hat_id: hatId,
@@ -212,12 +288,38 @@ export async function popupKaydet(hatId, turId) {
       fotograf_url: fotografUrl,
       durum: 'tamamlandi'
     })
+    .select('id')
+    .single()
 
   if (error) {
     mesajEl.style.color = '#ff4757'
     mesajEl.textContent = 'Hata: ' + error.message
     kaydetBtn.disabled = false
     return
+  }
+
+  // Gübre uygulamalarını kaydet
+  const gubreSatirlari = [...document.querySelectorAll('#gubre-listesi .gubre-satir')]
+    .map(satir => ({
+      kayit_id: kayit.id,
+      gubre_id: satir.querySelector('.gubre-ad').value,
+      miktar: parseFloat(satir.querySelector('.gubre-miktar').value),
+      birim: satir.querySelector('.gubre-birim').value,
+      olcek: satir.querySelector('.gubre-olcek').value
+    }))
+    .filter(g => g.miktar > 0)
+
+  if (gubreSatirlari.length > 0) {
+    const { error: gubreHata } = await supabase
+      .from('gubre_uygulamalari')
+      .insert(gubreSatirlari)
+
+    if (gubreHata) {
+      mesajEl.style.color = '#ff4757'
+      mesajEl.textContent = 'Gübre kaydı hatası: ' + gubreHata.message
+      kaydetBtn.disabled = false
+      return
+    }
   }
 
   mesajEl.style.color = '#26de81'
