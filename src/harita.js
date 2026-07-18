@@ -369,7 +369,11 @@ const FISKIYE_KAPSAMA = 7 // metre — bir fiskiyenin suladigi tahmini yaricap
 const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
 
 // Parsel sonuna kadar uzayan vanalar
-const UZAT = { 32: 'alt', 12: null } // 12: kuzeydogu kolu, parsel kenarinda uzun sira
+const UZAT = { 32: 'alt' }
+
+// Poligon verisindeki girinti yuzunden yanlis kirpilan vanalar:
+// kirpma uygulanmaz, sabit pozisyon sayisi cizilir (komsulariyla ayni uzunluk)
+const KIRPMASIZ_SABIT = { 12: 33 }
 
 // Hat durumuna gore renkler (hat listesiyle ayni sistem)
 const HAT_RENK = {
@@ -491,7 +495,8 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
 
       const bosluk = BOSLUKLU[v.isaretci_no]
       const bosluklu = bosluk && bosluk.yon === v.yon
-      const cizimAdet = UZAT[v.isaretci_no] === v.yon ? 80 : adet
+      const kirpmasiz = v.yon === null ? KIRPMASIZ_SABIT[v.isaretci_no] : null
+      const cizimAdet = kirpmasiz || (UZAT[v.isaretci_no] === v.yon ? 80 : adet)
 
       const konumlar = []
       for (let i = 1; i <= cizimAdet; i++) {
@@ -501,7 +506,7 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
       konumlar.forEach(ki => {
         const [fLat, fLng] = metreOtele(b[0], b[1], yon, ki * FISKIYE_ARALIK)
 
-        if (poligonlar.length > 0 &&
+        if (!kirpmasiz && poligonlar.length > 0 &&
             !poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) {
           return
         }
