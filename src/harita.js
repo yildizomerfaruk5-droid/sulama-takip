@@ -369,7 +369,7 @@ const FISKIYE_KAPSAMA = 7 // metre — bir fiskiyenin suladigi tahmini yaricap
 const BOSLUKLU = { 33: { yon: 'alt', sonra: 16 }, 34: { yon: 'alt', sonra: 16 } }
 
 // Parsel sonuna kadar uzayan vanalar
-const UZAT = { 32: 'alt' }
+const UZAT = { 32: 'alt', 12: null } // 12: kuzeydogu kolu, parsel kenarinda uzun sira
 
 // Hat durumuna gore renkler (hat listesiyle ayni sistem)
 const HAT_RENK = {
