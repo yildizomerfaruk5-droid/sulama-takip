@@ -174,11 +174,14 @@ function viewerSayacBaslat() {
     const el = document.getElementById(`vsayac-${sistemDurumu.aktif_hat_id}`)
     if (!el) return
 
-    const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
-    let baslama = localStorage.getItem(baslamaKey)
+    let baslama = sistemDurumu.hat_baslama_zamani
     if (!baslama) {
-      baslama = new Date().toISOString()
-      localStorage.setItem(baslamaKey, baslama)
+      const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
+      baslama = localStorage.getItem(baslamaKey)
+      if (!baslama) {
+        baslama = new Date().toISOString()
+        localStorage.setItem(baslamaKey, baslama)
+      }
     }
 
     const gecenSn = Math.floor((Date.now() - new Date(baslama).getTime()) / 1000)

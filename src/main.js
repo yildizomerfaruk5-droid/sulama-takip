@@ -353,6 +353,7 @@ window.sistemiBaslat = async () => {
       siradaki_hat_id: siradakiHat?.id || null,
       aktif_tur_id: tur.id,
       aktif_zona_id: aktifHat.zona_id,
+      hat_baslama_zamani: new Date().toISOString(),
       guncelleme_zamani: new Date().toISOString()
     })
     .eq('bolge_id', aktifBolge.id)
@@ -372,6 +373,7 @@ window.sistemiKapat = async () => {
       sistem_acik: false,
       aktif_hat_id: null,
       siradaki_hat_id: null,
+      hat_baslama_zamani: null,
       guncelleme_zamani: new Date().toISOString()
     })
     .eq('bolge_id', aktifBolge.id)
@@ -397,7 +399,9 @@ window.hatAtla = async () => {
 
   // Mevcut aktif hattı tamamlandı kaydet — gerçek başlama zamanı ve süreyle
   const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
-  const baslama = localStorage.getItem(baslamaKey) || new Date().toISOString()
+  const baslama = sistemDurumu.hat_baslama_zamani
+    || localStorage.getItem(baslamaKey)
+    || new Date().toISOString()
   localStorage.removeItem(baslamaKey)
   const bitis = new Date().toISOString()
   const sureDk = Math.max(0, Math.round((new Date(bitis) - new Date(baslama)) / 60000))
@@ -433,6 +437,7 @@ window.hatAtla = async () => {
     .update({
       aktif_hat_id: siradakiHat.id,
       siradaki_hat_id: yeniSiradaki?.id || null,
+      hat_baslama_zamani: new Date().toISOString(),
       guncelleme_zamani: new Date().toISOString()
     })
     .eq('bolge_id', aktifBolge.id)
@@ -540,6 +545,7 @@ async function turTamamla() {
         siradaki_hat_id: yeniSiradaki?.id || null,
         aktif_tur_id: yeniTur.id,
         aktif_zona_id: siradakiZona.id,
+        hat_baslama_zamani: new Date().toISOString(),
         guncelleme_zamani: new Date().toISOString()
       })
       .eq('bolge_id', aktifBolge.id)
@@ -558,6 +564,7 @@ async function turTamamla() {
         siradaki_hat_id: null,
         aktif_tur_id: null,
         aktif_zona_id: null,
+        hat_baslama_zamani: null,
         guncelleme_zamani: new Date().toISOString()
       })
       .eq('bolge_id', aktifBolge.id)
@@ -596,12 +603,15 @@ function sayaciBaslat() {
     const el = document.getElementById(`sayac-${sistemDurumu.aktif_hat_id}`)
     if (!el) return
 
-    const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
-    let baslama = localStorage.getItem(baslamaKey)
-
+    // Sayaç kaynağı: veritabanı (cihazlar arası tutarlı); eski kayıtlar için localStorage
+    let baslama = sistemDurumu.hat_baslama_zamani
     if (!baslama) {
-      baslama = new Date().toISOString()
-      localStorage.setItem(baslamaKey, baslama)
+      const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
+      baslama = localStorage.getItem(baslamaKey)
+      if (!baslama) {
+        baslama = new Date().toISOString()
+        localStorage.setItem(baslamaKey, baslama)
+      }
     }
 
     const gecenMs = Date.now() - new Date(baslama).getTime()
