@@ -103,11 +103,30 @@ export function popupHTML(hat) {
           <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
             Fotoğraf
           </label>
-          <input id="popup-foto" type="file" accept="image/*" capture="environment" style="
-            color: #e0e0e0;
-            font-size: 13px;
-            width: 100%;
-          "/>
+          <div style="display:flex; gap:8px;">
+            <button id="foto-kamera-btn" type="button" style="
+              flex: 1;
+              padding: 10px;
+              background: #0f1923;
+              border: 1px solid #2c3e50;
+              border-radius: 6px;
+              color: #e0e0e0;
+              font-size: 13px;
+              cursor: pointer;
+            ">📷 Kamera</button>
+            <button id="foto-galeri-btn" type="button" style="
+              flex: 1;
+              padding: 10px;
+              background: #0f1923;
+              border: 1px solid #2c3e50;
+              border-radius: 6px;
+              color: #e0e0e0;
+              font-size: 13px;
+              cursor: pointer;
+            ">🖼 Galeriden Seç</button>
+          </div>
+          <input id="popup-foto" type="file" accept="image/*" capture="environment" style="display:none;"/>
+          <input id="popup-foto-galeri" type="file" accept="image/*" style="display:none;"/>
           <div id="foto-onizleme" style="margin-top:8px;"></div>
         </div>
 
@@ -147,6 +166,7 @@ export function popupHTML(hat) {
 }
 
 let gubreSecenekleri = []
+let secilenFoto = null
 
 function gubreSatirEkle() {
   const liste = document.getElementById('gubre-listesi')
@@ -221,18 +241,30 @@ export function popupEventleriEkle(hatId, turId) {
     }
   })
 
-  // Fotoğraf önizleme
-  document.getElementById('popup-foto').addEventListener('change', (e) => {
+  // Fotoğraf: kamera veya galeri
+  secilenFoto = null
+  document.getElementById('foto-kamera-btn').addEventListener('click', () => {
+    document.getElementById('popup-foto').click()
+  })
+  document.getElementById('foto-galeri-btn').addEventListener('click', () => {
+    document.getElementById('popup-foto-galeri').click()
+  })
+
+  const fotoSecildi = (e) => {
     const dosya = e.target.files[0]
     if (!dosya) return
+    secilenFoto = dosya
     const reader = new FileReader()
     reader.onload = (ev) => {
       document.getElementById('foto-onizleme').innerHTML = `
         <img src="${ev.target.result}" style="width:100%; border-radius:6px; max-height:200px; object-fit:cover;">
+        <div style="color:#7f8c8d; font-size:11px; margin-top:4px;">${dosya.name}</div>
       `
     }
     reader.readAsDataURL(dosya)
-  })
+  }
+  document.getElementById('popup-foto').addEventListener('change', fotoSecildi)
+  document.getElementById('popup-foto-galeri').addEventListener('change', fotoSecildi)
 
   // Kaydet butonu
   document.getElementById('popup-kaydet-btn').addEventListener('click', () => {
@@ -243,7 +275,6 @@ export function popupEventleriEkle(hatId, turId) {
 export async function popupKaydet(hatId, turId) {
   const islem = document.getElementById('popup-islem').value
   const not = document.getElementById('popup-not').value
-  const fotoInput = document.getElementById('popup-foto')
   const mesajEl = document.getElementById('popup-mesaj')
   const kaydetBtn = document.getElementById('popup-kaydet-btn')
 
@@ -253,10 +284,10 @@ export async function popupKaydet(hatId, turId) {
 
   let fotografUrl = null
 
-  // Fotoğraf varsa yükle
-  if (fotoInput.files.length > 0) {
-    const dosya = fotoInput.files[0]
-    const dosyaAdi = `${hatId}_${Date.now()}.${dosya.name.split('.').pop()}`
+  // Fotoğraf varsa yükle (kameradan veya galeriden)
+  if (secilenFoto) {
+    const dosya = secilenFoto
+    const dosyaAdi = `${hatId}_${Date.now()}.${dosya.name.split('.').pop() || 'jpg'}`
 
     const { error } = await supabase.storage
       .from('fotograflar')
