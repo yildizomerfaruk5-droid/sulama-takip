@@ -373,7 +373,7 @@ const UZAT = { 32: 'alt' }
 
 // Hat durumuna gore renkler (hat listesiyle ayni sistem)
 const HAT_RENK = {
-  aktif: '#2e86de',    // mavi — su anda sulaniyor (yanip soner)
+  aktif: '#1450b8',    // koyu mavi — su anda sulaniyor (yanip soner)
   tamam: '#26de81',    // yesil — bu turda sulandi
   siradaki: '#f9ca24', // sari — siradaki hat
   pasif: '#00e5ff'     // camgobegi — beklemede / hat atanmamis
