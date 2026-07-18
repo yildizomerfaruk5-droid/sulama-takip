@@ -65,6 +65,14 @@ export async function viewerRender() {
         <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
         <div style="display:flex; align-items:center; gap:16px;">
           ${bolge ? `<div class="meta" style="color:#5dade2;">📍 ${bolge.ad}</div>` : ''}
+          <a href="/" onclick="localStorage.removeItem('goruntuleme_modu')" style="
+            color: #7f8c8d;
+            font-size: 11px;
+            text-decoration: none;
+            border: 1px solid #2c3e50;
+            border-radius: 6px;
+            padding: 4px 10px;
+          ">🔑 Yönetici</a>
           <div class="meta">${new Date().toLocaleDateString('tr-TR', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
           })}</div>

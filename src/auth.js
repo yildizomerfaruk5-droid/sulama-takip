@@ -126,6 +126,21 @@ export function loginHTML() {
           "
         >Giriş Yap</button>
 
+        <button
+          onclick="misafirDevam()"
+          style="
+            width: 100%;
+            padding: 11px;
+            margin-top: 10px;
+            background: transparent;
+            border: 1px solid #2c3e50;
+            border-radius: 6px;
+            color: #5dade2;
+            font-size: 14px;
+            cursor: pointer;
+          "
+        >👁 Misafir Olarak İzle</button>
+
         <div id="login-hata" style="
           color: #ff4757;
           font-size: 13px;

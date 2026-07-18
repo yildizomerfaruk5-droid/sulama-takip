@@ -667,11 +667,27 @@ window.cikisYap = async () => {
   document.querySelector('#app').innerHTML = loginHTML()
 }
 
+window.misafirDevam = () => {
+  localStorage.setItem('goruntuleme_modu', 'viewer')
+  window.location.href = '/?viewer'
+}
+
 async function uygulamaBaslat() {
   if (window.location.search.includes('viewer')) {
     viewerRealtimeBaslat()
     await viewerRender()
     return
+  }
+
+  // Misafir tercihi: uygulama her acilista dogrudan izleme ekranina gitsin
+  if (localStorage.getItem('goruntuleme_modu') === 'viewer') {
+    const kullaniciVar = await mevcutKullanici()
+    if (!kullaniciVar) {
+      window.location.href = '/?viewer'
+      return
+    }
+    // Giris yapmis kullanici varsa tercih temizlenir (admin telefonu)
+    localStorage.removeItem('goruntuleme_modu')
   }
 
   const kullanici = await mevcutKullanici()
