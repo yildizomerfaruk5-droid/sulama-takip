@@ -113,7 +113,7 @@ async function render() {
     if (el) el.innerHTML = girisGecmisiHTML(kayitlar)
   })
     const el = document.getElementById('gecmis-liste')
-    if (el) el.innerHTML = gecmisHTML(kayitlar)
+    if (el) el.innerHTML = gecmisHTML(kayitlar, true)
   })
 
   galeriKayitlariGetir(aktifBolge.id).then(kayitlar => {
@@ -719,6 +719,40 @@ window.yedekAl = async (btn) => {
     btn.disabled = false
     btn.textContent = '💾 Yedek İndir'
   }, 3000)
+}
+
+window.kayitSil = async (kayitId) => {
+  const onay = confirm('Bu kayıt silinsin mi?\nBağlı gübre girişleri ve fotoğraf da silinir.')
+  if (!onay) return
+
+  const { data: k } = await supabase
+    .from('sulama_kayitlari')
+    .select('fotograf_url, ilac_gubre_notu, hatlar(hat_no)')
+    .eq('id', kayitId)
+    .maybeSingle()
+
+  // Fotograf varsa storage'dan da temizle
+  if (k?.fotograf_url) {
+    const dosya = k.fotograf_url.split('/fotograflar/')[1]
+    if (dosya) {
+      await supabase.storage.from('fotograflar').remove([decodeURIComponent(dosya)])
+    }
+  }
+
+  const { error } = await supabase
+    .from('sulama_kayitlari')
+    .delete()
+    .eq('id', kayitId)
+
+  if (error) {
+    alert('Silinemedi: ' + error.message)
+    return
+  }
+
+  logKaydet('kayit_silindi',
+    `Hat-${k?.hatlar?.hat_no ?? '?'} kaydı silindi${k?.ilac_gubre_notu ? ' (' + k.ilac_gubre_notu + ')' : ''}`,
+    aktifBolge.id)
+  render()
 }
 
 window.bolgeDegistir = (bolgeId) => {

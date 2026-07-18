@@ -41,7 +41,8 @@ const OLAY_GORUNUM = {
   tur_tamamlandi:     ['🏁', '#f9ca24'],
   sure_degistirildi:  ['⏱', '#8e44ad'],
   kayit_eklendi:      ['📝', '#5dade2'],
-  yedek_alindi:       ['💾', '#00cec9']
+  yedek_alindi:       ['💾', '#00cec9'],
+  kayit_silindi:      ['🗑', '#ff4757']
 }
 
 export function logHTML(loglar) {

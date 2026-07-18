@@ -26,7 +26,7 @@ export async function gecmisKayitlariGetir(bolgeId = null) {
   return data
 }
 
-export function gecmisHTML(kayitlar) {
+export function gecmisHTML(kayitlar, silinebilir = false) {
   if (kayitlar.length === 0) {
     return '<div style="color:#7f8c8d; padding:20px; text-align:center;">Henüz kayıt yok.</div>'
   }
@@ -72,6 +72,18 @@ export function gecmisHTML(kayitlar) {
               k.durum === 'atlandi' ? '⏭ Atlandı' : '✕ İptal'}
           </span>
           <span class="kayit-islem">${k.islem_turu || 'sulama'}</span>
+          ${silinebilir ? `
+            <button onclick="kayitSil('${k.id}')" title="Kaydı sil" style="
+              background: none;
+              border: 1px solid #4a2020;
+              border-radius: 4px;
+              color: #ff4757;
+              cursor: pointer;
+              font-size: 13px;
+              padding: 2px 8px;
+              margin-top: 4px;
+            ">🗑 Sil</button>
+          ` : ''}
         </div>
       </div>
     `
