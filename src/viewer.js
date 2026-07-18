@@ -20,11 +20,25 @@ async function viewerBolgeBelirle() {
   return viewerBolge
 }
 
+async function ziyaretKaydet(bolgeId) {
+  try {
+    if (sessionStorage.getItem('ziyaret_loglandi')) return
+    sessionStorage.setItem('ziyaret_loglandi', '1')
+    await supabase.from('ziyaretci_loglari').insert({
+      bolge_id: bolgeId || null,
+      cihaz: navigator.userAgent.substring(0, 250)
+    })
+  } catch (e) {
+    console.error('Ziyaret kaydedilemedi:', e)
+  }
+}
+
 export async function viewerRender() {
   const app = document.querySelector('#app')
   app.innerHTML = '<div class="loading">Yükleniyor...</div>'
 
   const bolge = await viewerBolgeBelirle()
+  ziyaretKaydet(bolge?.id)
 
   const [zonalar, durum] = await Promise.all([
     zonaVeHatlariGetir(bolge?.id),

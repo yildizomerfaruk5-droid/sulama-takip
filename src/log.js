@@ -76,3 +76,54 @@ export function logHTML(loglar) {
     `
   }).join('')
 }
+
+// ── ZIYARETCI (MISAFIR) KAYITLARI ──
+function cihazOzeti(ua) {
+  if (!ua) return '🖥 Bilinmiyor'
+  if (ua.includes('iPhone')) return '📱 iPhone'
+  if (ua.includes('iPad')) return '📱 iPad'
+  const android = ua.match(/Android[^;)]*[;)]\s*([^);]+)/)
+  if (android) return '📱 ' + android[1].trim()
+  if (ua.includes('Windows')) return '💻 Windows'
+  if (ua.includes('Mac')) return '💻 Mac'
+  return '🖥 Diğer'
+}
+
+export async function ziyaretcileriGetir(limit = 20) {
+  const { data, error } = await supabase
+    .from('ziyaretci_loglari')
+    .select('*')
+    .order('olusturma_zamani', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Ziyaretçi okuma hatası:', error.message)
+    return []
+  }
+  return data || []
+}
+
+export function ziyaretciHTML(kayitlar) {
+  if (kayitlar.length === 0) {
+    return '<div style="color:#7f8c8d; font-size:13px; padding:8px;">Henüz misafir görüntülemesi yok.</div>'
+  }
+
+  return kayitlar.map(z => `
+    <div style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #0f1923;
+      border: 1px solid #2c3e50;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      font-size: 12.5px;
+    ">
+      <span style="color:#e0e0e0;">👁 İzleme ekranı açıldı</span>
+      <span style="color:#7f8c8d;">
+        ${new Date(z.olusturma_zamani).toLocaleString('tr-TR')} • ${cihazOzeti(z.cihaz)}
+      </span>
+    </div>
+  `).join('')
+}

@@ -9,7 +9,7 @@ import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHarit
 import { bolgeleriGetir, profilGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
-import { logKaydet, loglariGetir, logHTML } from './log.js'
+import { logKaydet, loglariGetir, logHTML, ziyaretcileriGetir, ziyaretciHTML } from './log.js'
 import { yedekIndir } from './yedek.js'
 
 
@@ -90,6 +90,9 @@ async function render() {
 
       <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
       <div id="giris-gecmisi-liste">Yükleniyor...</div>
+
+      <div class="gecmis-baslik">👁 Ziyaretçiler (misafir görüntülemeleri)</div>
+      <div id="ziyaretci-liste">Yükleniyor...</div>
       <div id="gecmis-liste">Yükleniyor...</div>
 
       <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
@@ -126,6 +129,11 @@ async function render() {
   loglariGetir(aktifBolge.id).then(loglar => {
     const el = document.getElementById('olay-log-liste')
     if (el) el.innerHTML = logHTML(loglar)
+  })
+
+  ziyaretcileriGetir().then(kayitlar => {
+    const el = document.getElementById('ziyaretci-liste')
+    if (el) el.innerHTML = ziyaretciHTML(kayitlar)
   })
 
   // Sayacı başlat
