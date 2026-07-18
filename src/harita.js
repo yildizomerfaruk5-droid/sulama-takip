@@ -412,6 +412,34 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaC
   .addTo(katmanlar.fiskiyeler)
 }
 
+// Vana 58 (alt): ana borunun bittigi noktadan sonra 119/11'in kalan
+// kuzeybati parcasini doldurur — sira araligi 12m, fiskiye araligi 10m,
+// ekim ekseni 60/240, parsel siniriyla kirpilir. Tumu vana 58'e baglidir.
+function kalanParcayiDoldur(v, renderer, renk, kapsamaCiz) {
+  const poligonlar = parselPoligonlari('119/11')
+  if (poligonlar.length === 0) return
+
+  const boruYonu = 326 // ana borunun dogrultusunun devami
+  let siraNo = 0
+
+  for (let s = 0; s <= 45; s++) {
+    const [bLat, bLng] = metreOtele(v.lat, v.lng, boruYonu, s * 12)
+
+    for (const yon of [60, 240]) {
+      // s=0'da 240 tarafini 58'in ust kaydi ciziyor; cift cizim olmasin
+      if (s === 0 && yon === 240) continue
+      const baslangicIndeks = yon === 60 ? 0 : 1
+
+      for (let i = baslangicIndeks; i <= 60; i++) {
+        const [fLat, fLng] = metreOtele(bLat, bLng, yon, i * FISKIYE_ARALIK)
+        if (!poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) break
+        siraNo++
+        fiskiyeNokta(fLat, fLng, '119/11', v.isaretci_no, siraNo, renderer, renk, kapsamaCiz)
+      }
+    }
+  }
+}
+
 function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
   const normalRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
   const aktifRenderer = L.canvas({ padding: 0.5, tolerance: 10, pane: 'aktifSulama' })
@@ -424,6 +452,12 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
     const renk = HAT_RENK[hatDurumu]
     const renderer = hatDurumu === 'aktif' ? aktifRenderer : normalRenderer
     const kapsamaCiz = hatDurumu !== 'pasif'
+
+    // Vana 58 (alt): 119/11'in kalan kuzeybati parcasini doldurur
+    if (v.isaretci_no === 58 && v.yon === 'alt') {
+      kalanParcayiDoldur(v, renderer, renk, kapsamaCiz)
+      return
+    }
 
     // Vana 35: parsel kenari boyunca, basta 4 pozisyon kaydirilmis
     if (v.isaretci_no === 35) {
