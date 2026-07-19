@@ -45,7 +45,7 @@ async function render() {
       .select('hat_id')
       .eq('tur_id', durum.aktif_tur_id)
       .eq('durum', 'tamamlandi')
-      .is('islem_turu', null)
+      .not('sure_dakika', 'is', null)
 
     tamamlananlar = (data || []).map(k => k.hat_id)
   }
@@ -422,7 +422,7 @@ window.hatAtla = async () => {
       tur_id: sistemDurumu.aktif_tur_id,
       baslangic_zamani: baslama,
       bitis_zamani: bitis,
-      sure_dakika: sureDk || null,
+      sure_dakika: sureDk,
       durum: 'tamamlandi'
     })
 

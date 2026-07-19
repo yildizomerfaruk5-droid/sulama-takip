@@ -54,7 +54,7 @@ export async function viewerRender() {
       .select('hat_id')
       .eq('tur_id', durum.aktif_tur_id)
       .eq('durum', 'tamamlandi')
-      .is('islem_turu', null)
+      .not('sure_dakika', 'is', null)
     tamamlananlar = (data || []).map(k => k.hat_id)
   }
 
