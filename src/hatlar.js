@@ -97,6 +97,7 @@ export async function calisanHatPaneliHTML(durum) {
       <span>Vanalar: <span class="chp-deger">${vanaNolar || '—'}</span></span>
       <span>Fıskiye: <span class="chp-deger">${fiskiyeToplam || '—'}</span></span>
       <span>Tahmini alan: <span class="chp-deger">~${alanDekar} dekar</span></span>
+      <span>Debi: <span class="chp-deger">~${fiskiyeToplam} m³/sa</span></span>
       <span>Süre: <span class="chp-deger">${sureyiFormatla(hat.varsayilan_sure_dk)}</span></span>
       <span>Geçen: <span class="chp-sayac" id="panel-sayac">--:--:--</span></span>
     </div>
