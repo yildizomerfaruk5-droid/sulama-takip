@@ -22,6 +22,7 @@ self.addEventListener('fetch', (e) => {
 
   // Canli veri ve kimlik istekleri: dokunma
   if (e.request.method !== 'GET') return
+  if (!url.protocol.startsWith('http')) return // tarayici eklentisi vb. istekler
   if (url.hostname.includes('supabase.co')) return
   if (url.hostname.includes('google.com')) return // uydu tile'lari buyuk, tarayici onbellegine birak
 
