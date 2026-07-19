@@ -376,6 +376,18 @@ const UZAT = { 32: 'alt' }
 const KIRPMASIZ_SABIT = { 12: 33 }
 
 // Hat durumuna gore renkler (hat listesiyle ayni sistem)
+// Her hatin kendine ozgu rengi (beklemedeki fiskiyeler bu renkte gorunur;
+// calisma renkleri — mavi/yesil/sari — her zaman onceliklidir)
+const HAT_PALET = [
+  '#cd84f1', '#ff793f', '#34ace0', '#33d9b2', '#ffb8b8',
+  '#7d5fff', '#f78fb3', '#e15f41', '#63cdda', '#ea8685',
+  '#f5cd79', '#778beb', '#e77f67', '#786fa6', '#40407a'
+]
+
+function hatRengi(hatNo) {
+  return HAT_PALET[(hatNo - 1) % HAT_PALET.length]
+}
+
 const HAT_RENK = {
   aktif: '#1450b8',    // koyu mavi — su anda sulaniyor (yanip soner)
   tamam: '#26de81',    // yesil — bu turda sulandi
@@ -392,7 +404,7 @@ function vanaHatDurumu(hatId, durum, tamamlananlar) {
   return 'pasif'
 }
 
-function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaCiz) {
+function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaCiz, hatNo) {
   // Sulanan alani boya (aktif/tamam/siradaki hatlarda)
   if (kapsamaCiz) {
     L.circle([lat, lng], {
@@ -412,7 +424,7 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaC
     fillColor: renk,
     fillOpacity: 0.9
   })
-  .bindPopup(`${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
+  .bindPopup(`${hatNo ? `<b>Hat-${hatNo}</b> • ` : ''}${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
   .addTo(katmanlar.fiskiyeler)
 }
 
@@ -438,7 +450,7 @@ function kalanParcayiDoldur(v, renderer, renk, kapsamaCiz) {
         const [fLat, fLng] = metreOtele(bLat, bLng, yon, i * FISKIYE_ARALIK)
         if (!poligonlar.some(pc => poligonIcinde(fLat, fLng, pc))) break
         siraNo++
-        fiskiyeNokta(fLat, fLng, '119/11', v.isaretci_no, siraNo, renderer, renk, kapsamaCiz)
+        fiskiyeNokta(fLat, fLng, '119/11', v.isaretci_no, siraNo, renderer, renk, kapsamaCiz, v.hatlar?.hat_no)
       }
     }
   }
@@ -453,7 +465,10 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
     const parselAd = v.parsel || '?'
 
     const hatDurumu = vanaHatDurumu(v.hat_id, durum, tamamlananlar)
-    const renk = HAT_RENK[hatDurumu]
+    let renk = HAT_RENK[hatDurumu]
+    if (hatDurumu === 'pasif' && v.hatlar?.hat_no) {
+      renk = hatRengi(v.hatlar.hat_no)
+    }
     const renderer = hatDurumu === 'aktif' ? aktifRenderer : normalRenderer
     const kapsamaCiz = hatDurumu !== 'pasif'
 
@@ -466,7 +481,7 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
     // Vana 35: parsel kenari boyunca, basta 4 pozisyon kaydirilmis
     if (v.isaretci_no === 35) {
       kenarBoyuncaNoktalar(v, v.fiskiye_sayisi, 4).forEach((n, idx) => {
-        fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, renderer, renk, kapsamaCiz)
+        fiskiyeNokta(n[0], n[1], parselAd, v.isaretci_no, idx + 1, renderer, renk, kapsamaCiz, v.hatlar?.hat_no)
       })
       return
     }
@@ -512,7 +527,7 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
         }
 
         siraNo++
-        fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, renderer, renk, kapsamaCiz)
+        fiskiyeNokta(fLat, fLng, parselAd, v.isaretci_no, siraNo, renderer, renk, kapsamaCiz, v.hatlar?.hat_no)
       })
     })
   })
@@ -523,7 +538,7 @@ export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, t
 
   let sorgu = supabase
     .from('vanalar')
-    .select('*')
+    .select('*, hatlar (hat_no)')
     .order('isaretci_no')
 
   if (bolgeId) sorgu = sorgu.eq('bolge_id', bolgeId)
@@ -553,7 +568,10 @@ export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, t
 
     const satirlar = grup.map(x => `
       ${x.yon ? `<b>${x.yon === 'alt' ? 'Alt' : 'Üst'}</b> (${x.parsel || '-'}):` : `Parsel: ${x.parsel || '-'}`}
-      ${x.fiskiye_sayisi} fıskiye
+      ${x.fiskiye_sayisi} fıskiye —
+      ${x.hatlar?.hat_no
+        ? `<b style="color:${hatRengi(x.hatlar.hat_no)}">Hat-${x.hatlar.hat_no}</b>`
+        : '<span style="color:#7f8c8d">hat atanmadı</span>'}
     `).join('<br>')
 
     L.marker([v.lat, v.lng], {
