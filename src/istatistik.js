@@ -3,6 +3,23 @@ import { supabase } from './supabase.js'
 // Fiskiye debisi: ~1000 litre/saat = 1 m3/saat (saha olcumu)
 const FISKIYE_DEBI_M3_SAAT = 1
 
+function hatAlanDekar(fiskiye) {
+  return (fiskiye || 0) * 0.12 // fiskiye basina ~120 m2
+}
+
+// Gercek toplam miktar (litre/kg): dekar girisleri hattin alaniyla carpilir
+function gubreMutlak(g) {
+  const f = g.sulama_kayitlari?.hatlar?.fiskiye_sayisi
+  return g.olcek === 'hat' ? Number(g.miktar) : Number(g.miktar) * hatAlanDekar(f)
+}
+
+// Dekar basina miktar: hat girisleri hattin alanina bolunur
+function gubreDekarBasina(g) {
+  const f = g.sulama_kayitlari?.hatlar?.fiskiye_sayisi
+  const alan = hatAlanDekar(f)
+  return g.olcek === 'dekar' ? Number(g.miktar) : (alan ? Number(g.miktar) / alan : 0)
+}
+
 function suM3(kayitlar) {
   return kayitlar.reduce((t, k) =>
     t + (k.sure_dakika / 60) * (k.hatlar?.fiskiye_sayisi || 0) * FISKIYE_DEBI_M3_SAAT, 0)
@@ -37,7 +54,7 @@ export async function istatistikVerileriGetir(bolgeId = null) {
       miktar, birim, olcek,
       gubreler (ad),
       sulama_kayitlari!inner (olusturma_zamani, tur_id,
-        hatlar!inner (hat_no, zonalar!inner (ad, bolge_id)))
+        hatlar!inner (hat_no, fiskiye_sayisi, zonalar!inner (ad, bolge_id)))
     `)
   if (bolgeId) gubreSorgu = gubreSorgu.eq('sulama_kayitlari.hatlar.zonalar.bolge_id', bolgeId)
 
@@ -163,7 +180,7 @@ function bolumCiz() {
     </div>
 
     <div class="ist-grafik-kutu">
-      <div class="ist-grafik-baslik">Gübre Kullanım Dağılımı</div>
+      <div class="ist-grafik-baslik">Gübre Kullanımı — dekar başına</div>
       <div style="position:relative; height:230px; max-width:420px; margin:0 auto;">
         <canvas id="grafik-gubre"></canvas>
       </div>
@@ -210,8 +227,8 @@ function icerikCiz() {
   const toplamDk = sul.reduce((t, k) => t + k.sure_dakika, 0)
   const ortDk = sul.length ? toplamDk / sul.length : 0
   const foto = girisler.filter(k => k.fotograf_url).length
-  const litre = gub.filter(g => g.birim === 'litre').reduce((t, g) => t + Number(g.miktar), 0)
-  const kg = gub.filter(g => g.birim === 'kg').reduce((t, g) => t + Number(g.miktar), 0)
+  const litre = gub.filter(g => g.birim === 'litre').reduce((t, g) => t + gubreMutlak(g), 0)
+  const kg = gub.filter(g => g.birim === 'kg').reduce((t, g) => t + gubreMutlak(g), 0)
 
   document.getElementById('ist-kartlar').innerHTML = [
     kart('Toplam Sulama', saatFormat(toplamDk), '#2e86de'),
@@ -336,8 +353,8 @@ function icerikCiz() {
   // ── 4) Gubre dagilimi ──
   const gubreToplam = {}
   gub.forEach(g => {
-    const ad = `${g.gubreler?.ad || '?'} (${g.birim})`
-    gubreToplam[ad] = (gubreToplam[ad] || 0) + Number(g.miktar)
+    const ad = `${g.gubreler?.ad || '?'} (${g.birim}/dekar)`
+    gubreToplam[ad] = (gubreToplam[ad] || 0) + gubreDekarBasina(g)
   })
   const gubreAdlari = Object.keys(gubreToplam)
 
@@ -384,8 +401,8 @@ function tabloCiz(sul, gub) {
     const no = g.sulama_kayitlari?.hatlar?.hat_no
     if (no == null) return
     if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0, m3: 0 }
-    if (g.birim === 'litre') satirlar[no].litre += Number(g.miktar)
-    else satirlar[no].kg += Number(g.miktar)
+    if (g.birim === 'litre') satirlar[no].litre += gubreMutlak(g)
+    else satirlar[no].kg += gubreMutlak(g)
   })
 
   const nolar = Object.keys(satirlar).map(Number).sort((a, b) => a - b)
@@ -509,7 +526,7 @@ function sezonRaporuYazdir() {
   const gubreToplam = {}
   ham.gubreler.forEach(g => {
     const ad = `${g.gubreler?.ad || '?'} (${g.birim})`
-    gubreToplam[ad] = (gubreToplam[ad] || 0) + Number(g.miktar)
+    gubreToplam[ad] = (gubreToplam[ad] || 0) + gubreMutlak(g)
   })
 
   const w = window.open('', '_blank')
