@@ -91,7 +91,8 @@ function donemSiniri() {
 }
 
 function kayitUygun(k) {
-  if (new Date(k.olusturma_zamani).getTime() < donemSiniri()) return false
+  const zaman = k.baslangic_zamani || k.olusturma_zamani
+  if (new Date(zaman).getTime() < donemSiniri()) return false
   if (secim.tur !== 'tum' && turNoBul(k.tur_id) !== Number(secim.tur)) return false
   if (secim.kapsam.startsWith('z|') && k.hatlar?.zonalar?.ad !== secim.kapsam.slice(2)) return false
   if (secim.kapsam.startsWith('h|') && String(k.hatlar?.hat_no) !== secim.kapsam.slice(2)) return false
@@ -323,7 +324,7 @@ function icerikCiz() {
     gunler.push(a); gunToplam[a] = 0
   }
   sul.forEach(k => {
-    const a = (k.olusturma_zamani || '').slice(0, 10)
+    const a = ((k.baslangic_zamani || k.olusturma_zamani) || '').slice(0, 10)
     if (a in gunToplam) gunToplam[a] += k.sure_dakika
   })
 
@@ -394,8 +395,11 @@ function tabloCiz(sul, gub) {
     satirlar[no].sayi++
     satirlar[no].dk += k.sure_dakika
     satirlar[no].m3 += (k.sure_dakika / 60) * (k.hatlar?.fiskiye_sayisi || 0) * FISKIYE_DEBI_M3_SAAT
-    const t = new Date(k.olusturma_zamani)
-    if (!satirlar[no].son || t > satirlar[no].son) satirlar[no].son = t
+    const bit = new Date(k.bitis_zamani || k.olusturma_zamani)
+    if (!satirlar[no].son || bit > satirlar[no].son) {
+      satirlar[no].son = bit
+      satirlar[no].sonBas = k.baslangic_zamani ? new Date(k.baslangic_zamani) : null
+    }
   })
   gub.forEach(g => {
     const no = g.sulama_kayitlari?.hatlar?.hat_no
@@ -438,7 +442,12 @@ function tabloCiz(sul, gub) {
             <td style="padding:6px 8px;">${saatFormat(s.dk)}</td>
             <td style="padding:6px 8px;">${s.sayi ? saatFormat(s.dk / s.sayi) : '—'}</td>
             <td style="padding:6px 8px;">~${Math.round(s.m3).toLocaleString('tr-TR')}</td>
-            <td style="padding:6px 8px;">${s.son ? s.son.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+            <td style="padding:6px 8px;">${s.son
+              ? (s.sonBas
+                  ? s.sonBas.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) +
+                    ' → ' + s.son.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                  : s.son.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
+              : '—'}</td>
             <td style="padding:6px 8px;">${gubreStr}</td>
           </tr>
         `
@@ -462,13 +471,14 @@ function csvDosyaIndir(ad, satirlar) {
 
 function kayitCsvIndir() {
   const satirlar = [[
-    'Tarih', 'Saat', 'Hat', 'Zona', 'Su', 'Durum', 'İşlem', 'Süre (dk)', 'Not', 'Fotoğraf URL'
+    'Tarih', 'Başlangıç', 'Bitiş', 'Hat', 'Zona', 'Su', 'Durum', 'İşlem', 'Süre (dk)', 'Not', 'Fotoğraf URL'
   ]]
   ham.kayitlar.forEach(k => {
-    const t = new Date(k.olusturma_zamani)
+    const t = new Date(k.baslangic_zamani || k.olusturma_zamani)
     satirlar.push([
       t.toLocaleDateString('tr-TR'),
       t.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      k.bitis_zamani ? new Date(k.bitis_zamani).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '',
       'Hat-' + (k.hatlar?.hat_no ?? '?'),
       k.hatlar?.zonalar?.ad || '',
       (turNoBul(k.tur_id) ?? '') + '',

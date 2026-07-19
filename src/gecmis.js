@@ -34,7 +34,12 @@ export function gecmisHTML(kayitlar, silinebilir = false) {
   return kayitlar.map(k => {
     const hat = k.hatlar
     const tur = k.turlar
-    const tarih = new Date(k.olusturma_zamani).toLocaleString('tr-TR')
+    const t0 = k.baslangic_zamani ? new Date(k.baslangic_zamani) : null
+    const t1 = k.bitis_zamani ? new Date(k.bitis_zamani) : null
+    const tarih = (k.sure_dakika != null && t0 && t1)
+      ? t0.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) +
+        ' → ' + t1.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+      : new Date(k.olusturma_zamani).toLocaleString('tr-TR')
     const sure = k.sure_dakika
       ? `${Math.floor(k.sure_dakika/60)}sa ${k.sure_dakika%60}dk`
       : '-'
