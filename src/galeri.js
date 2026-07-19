@@ -50,21 +50,26 @@ export function galeriHTML(kayitlar) {
 
     const turlarHTML = turNolar.map(turNo => {
       const fotolar = hat.turlar[turNo].map(k => {
-        const tarih = new Date(k.olusturma_zamani).toLocaleDateString('tr-TR')
-        const aciklama = `Hat-${hat.hatNo} — ${turNo > 0 ? turNo + '. Su' : 'Tur dışı'} — ${tarih}${k.ilac_gubre_notu ? ' — ' + k.ilac_gubre_notu : ''}`
+        const zaman = new Date(k.olusturma_zamani)
+        const tarih = zaman.toLocaleDateString('tr-TR')
+        const saat = zaman.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+        const aciklama = `Hat-${hat.hatNo} — ${turNo > 0 ? turNo + '. Su' : 'Tur dışı'} — ${tarih} ${saat}${k.ilac_gubre_notu ? ' — ' + k.ilac_gubre_notu : ''}`
         return `
-          <img
-            src="${k.fotograf_url}"
-            loading="lazy"
-            onclick="galeriBuyut('${k.fotograf_url}', '${aciklama.replace(/'/g, '&#39;')}')"
-            style="
-              width: 96px; height: 96px;
-              object-fit: cover;
-              border-radius: 6px;
-              border: 1px solid #2c3e50;
-              cursor: pointer;
-            "
-          />
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+            <img
+              src="${k.fotograf_url}"
+              loading="lazy"
+              onclick="galeriBuyut('${k.fotograf_url}', '${aciklama.replace(/'/g, '&#39;')}')"
+              style="
+                width: 96px; height: 96px;
+                object-fit: cover;
+                border-radius: 6px;
+                border: 1px solid #2c3e50;
+                cursor: pointer;
+              "
+            />
+            <div style="color:#7f8c8d; font-size:10px;">${tarih} ${saat}</div>
+          </div>
         `
       }).join('')
 

@@ -45,6 +45,7 @@ async function render() {
       .select('hat_id')
       .eq('tur_id', durum.aktif_tur_id)
       .eq('durum', 'tamamlandi')
+      .is('islem_turu', null)
 
     tamamlananlar = (data || []).map(k => k.hat_id)
   }
@@ -612,9 +613,9 @@ function sayaciBaslat() {
     if (!el) return
 
     // Sayaç kaynağı: veritabanı (cihazlar arası tutarlı); eski kayıtlar için localStorage
+    const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
     let baslama = sistemDurumu.hat_baslama_zamani
     if (!baslama) {
-      const baslamaKey = `hat_baslama_${sistemDurumu.aktif_hat_id}`
       baslama = localStorage.getItem(baslamaKey)
       if (!baslama) {
         baslama = new Date().toISOString()
