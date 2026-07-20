@@ -1,3 +1,8 @@
+/*
+ * Sulama Takip Sistemi
+ * developed by manco — Ömer Faruk Yıldız
+ * 2026 — Kayseri
+ */
 import './style.css'
 import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
 import { supabase } from './supabase.js'
@@ -101,6 +106,10 @@ async function render() {
 
       <div class="gecmis-baslik">📊 İstatistikler</div>
       <div id="istatistik-bolum">${istatistikHTML()}</div>
+
+      <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
+        developed by Ömer Faruk Yıldız
+      </div>
     </div>
   `
 
@@ -791,6 +800,10 @@ window.bolgeDegistir = (bolgeId) => {
 window.addEventListener('DOMContentLoaded', () => {
   uygulamaBaslat()
 })
+
+// Gömülü geliştirici imzası (konsolda, build sonrasında da kalıcı)
+console.info('%c🌾 Sulama Takip — developed by Ömer Faruk Yıldız (manco)',
+  'color:#5dade2; font-size:11px;')
 
 // ── PWA: Service Worker kaydı ──
 if ('serviceWorker' in navigator) {

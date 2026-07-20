@@ -123,6 +123,10 @@ export async function viewerRender() {
 
       <div class="gecmis-baslik">📊 İstatistikler</div>
       <div id="istatistik-bolum">${istatistikHTML()}</div>
+
+      <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
+        developed by Ömer Faruk Yıldız
+      </div>
     </div>
   `
 

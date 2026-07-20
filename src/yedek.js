@@ -11,6 +11,7 @@ const YEDEK_TABLOLARI = [
 export async function yedekIndir(bolge = null) {
   const yedek = {
     sistem: 'sulama-takip',
+    gelistirici: 'Ömer Faruk Yıldız (manco)',
     surum: 1,
     tarih: new Date().toISOString(),
     bolge: bolge?.ad || 'tumu',
