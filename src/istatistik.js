@@ -3,7 +3,7 @@ import { supabase } from './supabase.js'
 // KUYU DEBISI SABITTIR: ~94 m3/saat (94 fiskiye x 1000 lt/sa referans noktasi).
 // Hat kac fiskiyeli olursa olsun kuyu ayni suyu basar; basinca gore
 // fiskiye basina dusen su 550-1600 lt/sa araliginda degisir.
-const KUYU_DEBI_M3_SAAT = 94
+const KUYU_DEBI_M3_SAAT = 90
 
 function hatAlanDekar(fiskiye) {
   return (fiskiye || 0) * 0.12 // fiskiye basina ~120 m2
@@ -558,7 +558,7 @@ function sezonRaporuYazdir() {
     Toplam sulama: <b>${saatFormat(toplamDk)}</b> — ${sul.length} hat sulaması —
     Tahmini su tüketimi: <b>~${Math.round(suM3(sul)).toLocaleString('tr-TR')} m³</b> —
     Fotoğraf: ${ham.kayitlar.filter(k => k.fotograf_url).length} adet
-    <br><small>(Kuyu debisi sabit ~94 m³/saat kabulüyle hesaplanmıştır; fıskiye başına düşen su hat büyüklüğüne göre 550-1600 lt/sa arasında değişir)</small>
+    <br><small>(Kuyu debisi sabit ~90 m³/saat kabulüyle hesaplanmıştır; fıskiye başına düşen su hat büyüklüğüne göre 550-1600 lt/sa arasında değişir)</small>
   </div>
 
   <h2>Su (Tur) Özeti</h2>
