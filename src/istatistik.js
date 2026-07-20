@@ -1,7 +1,9 @@
 import { supabase } from './supabase.js'
 
-// Fiskiye debisi: ~1000 litre/saat = 1 m3/saat (saha olcumu)
-const FISKIYE_DEBI_M3_SAAT = 1
+// KUYU DEBISI SABITTIR: ~94 m3/saat (94 fiskiye x 1000 lt/sa referans noktasi).
+// Hat kac fiskiyeli olursa olsun kuyu ayni suyu basar; basinca gore
+// fiskiye basina dusen su 550-1600 lt/sa araliginda degisir.
+const KUYU_DEBI_M3_SAAT = 94
 
 function hatAlanDekar(fiskiye) {
   return (fiskiye || 0) * 0.12 // fiskiye basina ~120 m2
@@ -21,8 +23,7 @@ function gubreDekarBasina(g) {
 }
 
 function suM3(kayitlar) {
-  return kayitlar.reduce((t, k) =>
-    t + (k.sure_dakika / 60) * (k.hatlar?.fiskiye_sayisi || 0) * FISKIYE_DEBI_M3_SAAT, 0)
+  return kayitlar.reduce((t, k) => t + (k.sure_dakika / 60) * KUYU_DEBI_M3_SAAT, 0)
 }
 
 // ── DURUM ──
@@ -394,7 +395,7 @@ function tabloCiz(sul, gub) {
     if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0, m3: 0 }
     satirlar[no].sayi++
     satirlar[no].dk += k.sure_dakika
-    satirlar[no].m3 += (k.sure_dakika / 60) * (k.hatlar?.fiskiye_sayisi || 0) * FISKIYE_DEBI_M3_SAAT
+    satirlar[no].m3 += (k.sure_dakika / 60) * KUYU_DEBI_M3_SAAT
     const bit = new Date(k.bitis_zamani || k.olusturma_zamani)
     if (!satirlar[no].son || bit > satirlar[no].son) {
       satirlar[no].son = bit
@@ -557,7 +558,7 @@ function sezonRaporuYazdir() {
     Toplam sulama: <b>${saatFormat(toplamDk)}</b> — ${sul.length} hat sulaması —
     Tahmini su tüketimi: <b>~${Math.round(suM3(sul)).toLocaleString('tr-TR')} m³</b> —
     Fotoğraf: ${ham.kayitlar.filter(k => k.fotograf_url).length} adet
-    <br><small>(Fıskiye başına ~1.000 litre/saat debi ile hesaplanmıştır)</small>
+    <br><small>(Kuyu debisi sabit ~94 m³/saat kabulüyle hesaplanmıştır; fıskiye başına düşen su hat büyüklüğüne göre 550-1600 lt/sa arasında değişir)</small>
   </div>
 
   <h2>Su (Tur) Özeti</h2>
