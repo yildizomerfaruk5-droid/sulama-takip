@@ -86,6 +86,15 @@ export async function calisanHatPaneliHTML(durum) {
 
   if (!hat) return ''
 
+  // Calisma araligi: baslama -> tahmini bitis
+  let saatAralik = '—'
+  if (durum.hat_baslama_zamani && hat.varsayilan_sure_dk) {
+    const b = new Date(durum.hat_baslama_zamani)
+    const e = new Date(b.getTime() + hat.varsayilan_sure_dk * 60000)
+    const fmt = t => t.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+    saatAralik = `${fmt(b)} → ${fmt(e)}`
+  }
+
   const vanaNolar = [...new Set((vanalar || []).map(v => v.isaretci_no))].join(', ')
   const fiskiyeToplam = (vanalar || []).reduce((t, v) => t + (v.fiskiye_sayisi || 0), 0)
   const alanDekar = Math.round(fiskiyeToplam * 0.12 * 10) / 10 // fiskiye basina ~120 m2
@@ -100,7 +109,11 @@ export async function calisanHatPaneliHTML(durum) {
       <span>Debi: <span class="chp-deger">~90 m³/sa</span></span>
       ${fiskiyeToplam ? `<span>Fıskiye başına: <span class="chp-deger">~${Math.round(90000 / fiskiyeToplam)} lt/sa</span></span>` : ''}
       <span>Süre: <span class="chp-deger">${sureyiFormatla(hat.varsayilan_sure_dk)}</span></span>
+      <span>Saat: <span class="chp-deger">${saatAralik}</span></span>
       <span>Geçen: <span class="chp-sayac" id="panel-sayac">--:--:--</span></span>
+      <span>Kalan: <span class="chp-sayac" id="panel-kalan"
+        data-sure="${hat.varsayilan_sure_dk || ''}"
+        style="color:#f9ca24;">--:--:--</span></span>
     </div>
   `
 }

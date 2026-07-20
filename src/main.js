@@ -644,6 +644,17 @@ function sayaciBaslat() {
     const panelEl = document.getElementById('panel-sayac')
     if (panelEl) panelEl.textContent = sayacMetni
 
+    const kalanEl = document.getElementById('panel-kalan')
+    if (kalanEl) {
+      const sureDk = parseInt(kalanEl.dataset.sure)
+      if (sureDk) {
+        const kalanSn = sureDk * 60 - gecenSn
+        kalanEl.textContent = kalanSn > 0
+          ? `${String(Math.floor(kalanSn / 3600)).padStart(2, '0')}:${String(Math.floor((kalanSn % 3600) / 60)).padStart(2, '0')}:${String(kalanSn % 60).padStart(2, '0')}`
+          : 'geçiş bekleniyor...'
+      }
+    }
+
     // Süre kontrolü — aktif hattın varsayılan süresi doldu mu?
     const { data: aktifHat } = await supabase
       .from('hatlar')
