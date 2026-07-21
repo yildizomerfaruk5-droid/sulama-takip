@@ -655,7 +655,9 @@ function sayaciBaslat() {
       }
     }
 
-    // Süre kontrolü — aktif hattın varsayılan süresi doldu mu?
+    // NOT: Otomatik hat geçişi SUNUCUDA yapılır (pg_cron > hat_gecis_kontrol).
+    // Tarayıcı geçiş tetiklemez — iki motorun çakışıp mükerrer kayıt üretmesini
+    // önlemek için. Süre dolduğunda yalnızca ekranı tazeleyip sunucuyu bekleriz.
     const { data: aktifHat } = await supabase
       .from('hatlar')
       .select('varsayilan_sure_dk')
@@ -664,10 +666,10 @@ function sayaciBaslat() {
 
     if (aktifHat) {
       const limitMs = aktifHat.varsayilan_sure_dk * 60 * 1000
-      if (gecenMs >= limitMs) {
+      // Sunucunun geçişi yapmasına fırsat ver, sonra ekranı tazele
+      if (gecenMs >= limitMs + 90000) {
         clearInterval(sayacInterval)
-        localStorage.removeItem(baslamaKey)
-        await hatAtla()
+        render()
       }
     }
   }, 1000)
