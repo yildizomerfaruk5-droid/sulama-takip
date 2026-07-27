@@ -46,28 +46,7 @@ export function popupHTML(hat) {
 
         <div style="margin-bottom:14px;">
           <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
-            İşlem Türü
-          </label>
-          <select id="popup-islem" style="
-            width: 100%;
-            padding: 10px 12px;
-            background: #0f1923;
-            border: 1px solid #2c3e50;
-            border-radius: 6px;
-            color: #e0e0e0;
-            font-size: 14px;
-            box-sizing: border-box;
-          ">
-            <option value="sulama">Sulama</option>
-            <option value="ilaclama">İlaçlama</option>
-            <option value="gubreleme">Gübreleme</option>
-            <option value="kombine">Kombine</option>
-          </select>
-        </div>
-
-        <div style="margin-bottom:14px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
-            İlaç / Gübre Notu
+            Not (isteğe bağlı)
           </label>
           <textarea id="popup-not" rows="3" placeholder="Örn: 2 kg Üre + 1 lt İlaç X" style="
             width: 100%;
@@ -285,7 +264,7 @@ export function popupEventleriEkle(hatId, turId) {
 }
 
 export async function popupKaydet(hatId, turId) {
-  const islem = document.getElementById('popup-islem').value
+  const islem = 'gubreleme'   // Sulama zaten hat akisiyla kaydediliyor
   const not = document.getElementById('popup-not').value
   const mesajEl = document.getElementById('popup-mesaj')
   const kaydetBtn = document.getElementById('popup-kaydet-btn')

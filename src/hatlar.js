@@ -51,9 +51,10 @@ export async function sistemDurumuGetir(bolgeId = null) {
 }
 
 export function hatDurumuBelirle(hat, sistemDurumu, tamamlananlar = []) {
+  // Aktif hat, kaydi onceden girilmis olsa bile AKTIF gorunur
+  if (sistemDurumu?.sistem_acik && hat.id === sistemDurumu.aktif_hat_id) return 'aktif'
   if (tamamlananlar.includes(hat.id)) return 'tamam'
   if (!sistemDurumu || !sistemDurumu.sistem_acik) return 'pasif'
-  if (hat.id === sistemDurumu.aktif_hat_id) return 'aktif'
   if (hat.id === sistemDurumu.siradaki_hat_id) return 'siradaki'
   return 'pasif'
 }
