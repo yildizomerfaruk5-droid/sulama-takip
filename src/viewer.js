@@ -115,14 +115,20 @@ export async function viewerRender() {
         ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
 
-      <div class="gecmis-baslik">📋 Geçmiş Kayıtlar</div>
-      <div id="gecmis-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📋 Geçmiş Kayıtlar</summary>
+        <div id="gecmis-liste">Yükleniyor...</div>
+      </details>
 
-      <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
-      <div id="galeri-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📊 İstatistikler</summary>
+        <div id="istatistik-bolum">${istatistikHTML()}</div>
+      </details>
 
-      <div class="gecmis-baslik">📊 İstatistikler</div>
-      <div id="istatistik-bolum">${istatistikHTML()}</div>
+      <details class="bolum">
+        <summary>📸 Foto Galerisi (hat ve su sırasına göre)</summary>
+        <div id="galeri-liste">Yükleniyor...</div>
+      </details>
 
       <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
         developed by Ömer Faruk Yıldız

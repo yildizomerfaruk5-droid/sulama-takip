@@ -182,7 +182,8 @@ function bolumCiz() {
     </div>
 
     <div class="ist-grafik-kutu">
-      <div class="ist-grafik-baslik">Gübre Kullanımı — toplam tüketim (litre / kg)</div>
+      <div class="ist-grafik-baslik">Gübre Kullanımı — dekar başına doz</div>
+      <div id="gubre-ozet" style="color:#7f8c8d; font-size:11.5px; margin-bottom:8px;"></div>
       <div style="position:relative; height:230px; max-width:420px; margin:0 auto;">
         <canvas id="grafik-gubre"></canvas>
       </div>
@@ -353,14 +354,31 @@ function icerikCiz() {
   }
 
   // ── 4) Gubre dagilimi ──
-  // Toplam gercek tuketim: dekar girisleri hat alaniyla carpilir,
-  // hat girisleri (orn. 50 kg/hat) oldugu gibi sayilir.
-  const gubreToplam = {}
+  // Dekar basina doz = toplam gercek miktar / toplam sulanan alan
+  // (4 lt/dekar giris -> 4; 50 kg/hat giris -> 50 x hat sayisi / toplam dekar)
+  const toplamDekar = sul.reduce((t, k) => t + hatAlanDekar(k.hatlar?.fiskiye_sayisi), 0)
+  const gubreMutlakToplam = {}
   gub.forEach(g => {
     const ad = `${g.gubreler?.ad || '?'} (${g.birim})`
-    gubreToplam[ad] = (gubreToplam[ad] || 0) + gubreMutlak(g)
+    gubreMutlakToplam[ad] = (gubreMutlakToplam[ad] || 0) + gubreMutlak(g)
+  })
+  const gubreToplam = {}
+  Object.entries(gubreMutlakToplam).forEach(([ad, miktar]) => {
+    gubreToplam[ad.replace(/\((litre|kg)\)/, '$1/dekar')] =
+      toplamDekar ? miktar / toplamDekar : 0
   })
   const gubreAdlari = Object.keys(gubreToplam)
+
+  // Ozet satiri: toplam tuketim + sulanan alan
+  const ozetEl = document.getElementById('gubre-ozet')
+  if (ozetEl) {
+    ozetEl.innerHTML = toplamDekar
+      ? `Toplam sulanan alan: <b style="color:#e0e0e0">~${Math.round(toplamDekar)} dekar</b> &nbsp;•&nbsp; ` +
+        Object.entries(gubreMutlakToplam)
+          .map(([ad, m]) => `${ad.replace(/\s*\((litre|kg)\)/, '')}: <b style="color:#e0e0e0">${Math.round(m)} ${ad.includes('kg') ? 'kg' : 'lt'}</b>`)
+          .join(' &nbsp;•&nbsp; ')
+      : ''
+  }
 
   const gubCv = document.getElementById('grafik-gubre')
   if (gubCv) {
@@ -373,7 +391,7 @@ function icerikCiz() {
         data: {
           labels: gubreAdlari,
           datasets: [{
-            data: gubreAdlari.map(ad => Math.round(gubreToplam[ad] * 10) / 10),
+            data: gubreAdlari.map(ad => Math.round(gubreToplam[ad] * 100) / 100),
             backgroundColor: ['#2e86de', '#26de81', '#f9ca24', '#a29bfe', '#e17055', '#00cec9', '#fd79a8'],
             borderColor: '#1a2634', borderWidth: 2
           }]

@@ -331,3 +331,36 @@ body {
 .harita-sifirla-btn:hover {
   background: #f4f4f4;
 }
+
+/* Acilir-kapanir bolumler */
+.bolum {
+  background: #1a2634;
+  border: 1px solid #2c3e50;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.bolum > summary {
+  cursor: pointer;
+  padding: 14px 16px;
+  color: #5dade2;
+  font-size: 15px;
+  font-weight: bold;
+  list-style: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bolum > summary::-webkit-details-marker { display: none; }
+.bolum > summary::before {
+  content: '▸';
+  color: #7f8c8d;
+  font-size: 13px;
+  transition: transform 0.15s;
+}
+.bolum[open] > summary::before { transform: rotate(90deg); }
+.bolum > summary:hover { background: #21313f; }
+.bolum > *:not(summary) {
+  padding: 0 16px 16px;
+}

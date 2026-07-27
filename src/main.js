@@ -79,33 +79,47 @@ async function render() {
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
 
-      <div class="gecmis-baslik" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>📜 Olay Kayıtları</span>
-        <button onclick="yedekAl(this)" style="
-          padding: 6px 14px;
-          background: #00cec9;
-          border: none;
-          border-radius: 6px;
-          color: #003330;
-          font-size: 12px;
-          font-weight: bold;
-          cursor: pointer;
-        ">💾 Yedek İndir</button>
-      </div>
-      <div id="olay-log-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📋 Geçmiş Kayıtlar</summary>
+        <div id="gecmis-liste">Yükleniyor...</div>
+      </details>
 
-      <div class="gecmis-baslik">🔐 Giriş Geçmişi</div>
-      <div id="giris-gecmisi-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📊 İstatistikler</summary>
+        <div id="istatistik-bolum">${istatistikHTML()}</div>
+      </details>
 
-      <div class="gecmis-baslik">👁 Ziyaretçiler (misafir görüntülemeleri)</div>
-      <div id="ziyaretci-liste">Yükleniyor...</div>
-      <div id="gecmis-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📸 Foto Galerisi (hat ve su sırasına göre)</summary>
+        <div id="galeri-liste">Yükleniyor...</div>
+      </details>
 
-      <div class="gecmis-baslik">📸 Foto Galerisi (hat ve su sırasına göre)</div>
-      <div id="galeri-liste">Yükleniyor...</div>
+      <details class="bolum">
+        <summary>📜 Olay Kayıtları</summary>
+        <div style="margin-bottom:10px;">
+          <button onclick="yedekAl(this)" style="
+            padding: 6px 14px;
+            background: #00cec9;
+            border: none;
+            border-radius: 6px;
+            color: #003330;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+          ">💾 Yedek İndir</button>
+        </div>
+        <div id="olay-log-liste">Yükleniyor...</div>
+      </details>
 
-      <div class="gecmis-baslik">📊 İstatistikler</div>
-      <div id="istatistik-bolum">${istatistikHTML()}</div>
+      <details class="bolum">
+        <summary>🔐 Giriş Geçmişi</summary>
+        <div id="giris-gecmisi-liste">Yükleniyor...</div>
+      </details>
+
+      <details class="bolum">
+        <summary>👁 Ziyaretçiler (misafir görüntülemeleri)</summary>
+        <div id="ziyaretci-liste">Yükleniyor...</div>
+      </details>
 
       <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
         developed by Ömer Faruk Yıldız
