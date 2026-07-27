@@ -168,11 +168,6 @@ function bolumCiz() {
     </div>
 
     <div class="ist-grafik-kutu">
-      <div class="ist-grafik-baslik">Günlük Sulama Süresi (saat)</div>
-      <div style="position:relative; height:200px;"><canvas id="grafik-gunluk"></canvas></div>
-    </div>
-
-    <div class="ist-grafik-kutu">
       <div class="ist-grafik-baslik">Gübre Kullanımı — dekar başına doz</div>
       <div id="gubre-ozet" style="color:#7f8c8d; font-size:11.5px; margin-bottom:8px;"></div>
       <div style="position:relative; height:230px; max-width:420px; margin:0 auto;">
@@ -301,44 +296,6 @@ function icerikCiz() {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: { x: { title: { display: true, text: 'saat' } } }
-      }
-    }))
-  }
-
-  // ── 3) Gunluk sure ──
-  const gunSayisi = secim.donem === 'hafta' ? 7 : 30
-  const bugun = new Date()
-  const gunler = []
-  const gunToplam = {}
-  for (let i = gunSayisi - 1; i >= 0; i--) {
-    const d = new Date(bugun); d.setDate(d.getDate() - i)
-    const a = d.toISOString().slice(0, 10)
-    gunler.push(a); gunToplam[a] = 0
-  }
-  sul.forEach(k => {
-    const a = ((k.baslangic_zamani || k.olusturma_zamani) || '').slice(0, 10)
-    if (a in gunToplam) gunToplam[a] += k.sure_dakika
-  })
-
-  const gunCv = document.getElementById('grafik-gunluk')
-  if (gunCv) {
-    grafikler.push(new Chart(gunCv, {
-      type: 'bar',
-      data: {
-        labels: gunler.map(g => g.slice(8, 10) + '.' + g.slice(5, 7)),
-        datasets: [{
-          data: gunler.map(g => Math.round(gunToplam[g] / 6) / 10),
-          backgroundColor: '#26de81',
-          borderRadius: 3
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { title: { display: true, text: 'saat' } },
-          x: { ticks: { maxRotation: 60, autoSkip: true, maxTicksLimit: 15 } }
-        }
       }
     }))
   }
