@@ -1,10 +1,5 @@
 import { supabase } from './supabase.js'
 
-// KUYU DEBISI SABITTIR: ~94 m3/saat (94 fiskiye x 1000 lt/sa referans noktasi).
-// Hat kac fiskiyeli olursa olsun kuyu ayni suyu basar; basinca gore
-// fiskiye basina dusen su 550-1600 lt/sa araliginda degisir.
-const KUYU_DEBI_M3_SAAT = 90
-
 function hatAlanDekar(fiskiye) {
   return (fiskiye || 0) * 0.12 // fiskiye basina ~120 m2
 }
@@ -20,10 +15,6 @@ function gubreDekarBasina(g) {
   const f = g.sulama_kayitlari?.hatlar?.fiskiye_sayisi
   const alan = hatAlanDekar(f)
   return g.olcek === 'dekar' ? Number(g.miktar) : (alan ? Number(g.miktar) / alan : 0)
-}
-
-function suM3(kayitlar) {
-  return kayitlar.reduce((t, k) => t + (k.sure_dakika / 60) * KUYU_DEBI_M3_SAAT, 0)
 }
 
 // ── DURUM ──
@@ -239,8 +230,7 @@ function icerikCiz() {
     kart('Ortalama Süre', sul.length ? saatFormat(ortDk) : '—', '#e0e0e0'),
     kart('Fotoğraf', foto, '#f9ca24'),
     kart('Gübre (sıvı)', `${Math.round(litre * 10) / 10} litre`, '#a29bfe'),
-    kart('Gübre (katı)', `${Math.round(kg * 10) / 10} kg`, '#a29bfe'),
-    kart('Su Tüketimi', `~${Math.round(suM3(sul)).toLocaleString('tr-TR')} m³`, '#00e5ff')
+    kart('Gübre (katı)', `${Math.round(kg * 10) / 10} kg`, '#a29bfe')
   ].join('')
 
   if (typeof Chart === 'undefined') return
@@ -412,10 +402,9 @@ function tabloCiz(sul, gub) {
   const satirlar = {}
   sul.forEach(k => {
     const no = k.hatlar?.hat_no ?? '?'
-    if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0, m3: 0 }
+    if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0 }
     satirlar[no].sayi++
     satirlar[no].dk += k.sure_dakika
-    satirlar[no].m3 += (k.sure_dakika / 60) * KUYU_DEBI_M3_SAAT
     const bit = new Date(k.bitis_zamani || k.olusturma_zamani)
     if (!satirlar[no].son || bit > satirlar[no].son) {
       satirlar[no].son = bit
@@ -425,7 +414,7 @@ function tabloCiz(sul, gub) {
   gub.forEach(g => {
     const no = g.sulama_kayitlari?.hatlar?.hat_no
     if (no == null) return
-    if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0, m3: 0 }
+    if (!satirlar[no]) satirlar[no] = { sayi: 0, dk: 0, son: null, litre: 0, kg: 0 }
     if (g.birim === 'litre') satirlar[no].litre += gubreMutlak(g)
     else satirlar[no].kg += gubreMutlak(g)
   })
@@ -446,7 +435,6 @@ function tabloCiz(sul, gub) {
         <th style="padding:6px 8px;">Sulama</th>
         <th style="padding:6px 8px;">Toplam</th>
         <th style="padding:6px 8px;">Ortalama</th>
-        <th style="padding:6px 8px;">Su (m³)</th>
         <th style="padding:6px 8px;">Son Sulama</th>
         <th style="padding:6px 8px;">Gübre</th>
       </tr>
@@ -462,7 +450,6 @@ function tabloCiz(sul, gub) {
             <td style="padding:6px 8px;">${s.sayi} kez</td>
             <td style="padding:6px 8px;">${saatFormat(s.dk)}</td>
             <td style="padding:6px 8px;">${s.sayi ? saatFormat(s.dk / s.sayi) : '—'}</td>
-            <td style="padding:6px 8px;">~${Math.round(s.m3).toLocaleString('tr-TR')}</td>
             <td style="padding:6px 8px;">${s.son
               ? (s.sonBas
                   ? s.sonBas.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) +
@@ -576,9 +563,7 @@ function sezonRaporuYazdir() {
   <div class="ozet">
     Rapor tarihi: ${new Date().toLocaleString('tr-TR')}<br>
     Toplam sulama: <b>${saatFormat(toplamDk)}</b> — ${sul.length} hat sulaması —
-    Tahmini su tüketimi: <b>~${Math.round(suM3(sul)).toLocaleString('tr-TR')} m³</b> —
     Fotoğraf: ${ham.kayitlar.filter(k => k.fotograf_url).length} adet
-    <br><small>(Kuyu debisi sabit ~90 m³/saat kabulüyle hesaplanmıştır; fıskiye başına düşen su hat büyüklüğüne göre 550-1600 lt/sa arasında değişir)</small>
   </div>
 
   <h2>Su (Tur) Özeti</h2>
