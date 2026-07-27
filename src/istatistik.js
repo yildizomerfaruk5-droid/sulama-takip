@@ -182,7 +182,7 @@ function bolumCiz() {
     </div>
 
     <div class="ist-grafik-kutu">
-      <div class="ist-grafik-baslik">Gübre Kullanımı — dekar başına</div>
+      <div class="ist-grafik-baslik">Gübre Kullanımı — toplam tüketim (litre / kg)</div>
       <div style="position:relative; height:230px; max-width:420px; margin:0 auto;">
         <canvas id="grafik-gubre"></canvas>
       </div>
@@ -353,10 +353,12 @@ function icerikCiz() {
   }
 
   // ── 4) Gubre dagilimi ──
+  // Toplam gercek tuketim: dekar girisleri hat alaniyla carpilir,
+  // hat girisleri (orn. 50 kg/hat) oldugu gibi sayilir.
   const gubreToplam = {}
   gub.forEach(g => {
-    const ad = `${g.gubreler?.ad || '?'} (${g.birim}/dekar)`
-    gubreToplam[ad] = (gubreToplam[ad] || 0) + gubreDekarBasina(g)
+    const ad = `${g.gubreler?.ad || '?'} (${g.birim})`
+    gubreToplam[ad] = (gubreToplam[ad] || 0) + gubreMutlak(g)
   })
   const gubreAdlari = Object.keys(gubreToplam)
 
