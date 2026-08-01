@@ -754,3 +754,54 @@ body {
 @media (max-width: 600px) {
   .kurulum-ozet-izgara { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Kurulum: GeoJSON ice aktarma (KML yukleyicinin yaninda) */
+.kurulum-ayirac {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 10px;
+  color: #7f8c8d;
+  font-size: 11.5px;
+}
+.kurulum-ayirac::before,
+.kurulum-ayirac::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2c3e50;
+}
+.kurulum-geojson > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: #5dade2;
+  padding: 8px 0;
+  user-select: none;
+}
+.kurulum-geojson[open] > summary { margin-bottom: 6px; }
+.kurulum-govde .kurulum-geojson-alan {
+  width: 100%;
+  padding: 9px 10px;
+  background: #0f1923;
+  border: 1px solid #2c3e50;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+.kurulum-govde .kurulum-geojson-alan:focus { outline: 1px solid #2e86de; }
+.kurulum-ipucu code {
+  background: #0f1923;
+  border: 1px solid #2c3e50;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+.kurulum-uyari-kirmizi {
+  background: #341c1c;
+  border-color: #c0392b;
+  color: #ff7675;
+}

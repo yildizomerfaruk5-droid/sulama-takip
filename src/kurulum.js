@@ -10,7 +10,8 @@ import { supabase } from './supabase.js'
 import { logKaydet } from './log.js'
 import { fiskiyeKonumlari, yonHesapla, mesafeM } from './harita.js'
 import {
-  kmlAyristir, kmlUret, poligonAlanM2, cizgiUzunlukM, isaretciNoAyristir, vanaAciklamaAyristir,
+  kmlAyristir, kmlUret, geojsonAyristir, poligonAlanM2, cizgiUzunlukM,
+  isaretciNoAyristir, vanaAciklamaAyristir,
   alanBicimle, dekarBicimle, uzunlukBicimle
 } from './kml.js'
 
@@ -62,7 +63,7 @@ let durum = {
   noktalar: [],
   vanalar: [],
   hatlar: [],
-  kmlAdaylari: null,  // { dosya, parseller, cizgiler, noktalar, vanaSatirlari }
+  iceAktarmaAdaylari: null,  // { dosya, parseller, cizgiler, noktalar, vanaSatirlari }
   vanaFiltre: '',
   sadeceEksik: false,
   vanaSecili: new Set(),
@@ -576,14 +577,20 @@ function isaretli(id) {
 }
 
 // KML yükleme alanı (adım 3 ve 4'te aynı bileşen)
-function kmlYukleHTML(tur) {
+/*
+ * Saha verisi içe aktarma kartı — iki kaynak, tek akış.
+ * KML ve GeoJSON aynı yapıyı ürettiği için önizleme tablosu, çakışma
+ * uyarısı ve içe aktarma işleyicisi ortaktır.
+ * GeoJSON yalnızca adım 3-4'te sunulur (vana adımı KML işaretçilerine dayalı).
+ */
+function iceAktarHTML(tur) {
   const ne = tur === 'parsel'
-    ? 'Poligonlar (&lt;Polygon&gt;) parsel adayı olarak listelenir.'
-    : 'Çizgiler (&lt;LineString&gt;) boru, noktalar (&lt;Point&gt;) saha noktası adayı olur.'
+    ? 'Poligonlar parsel adayı olarak listelenir.'
+    : 'Çizgiler boru, noktalar saha noktası adayı olur.'
 
   return `
     <div class="kurulum-kart">
-      <h3>KML yükle</h3>
+      <h3>Saha verisi içe aktar</h3>
       <div class="kurulum-ipucu">
         Google Earth'ten "KML olarak kaydet" ile dışa aktardığınız dosyayı yükleyin. ${ne}
         <br>KMZ desteklenmez — Google Earth'te KML olarak kaydedin.
@@ -598,6 +605,50 @@ function kmlYukleHTML(tur) {
         <button class="kurulum-btn kurulum-btn-sade kurulum-btn-kucuk"
                 onclick="document.getElementById('k-kml-dosya').click()">Dosya seç</button>
       </div>
+
+      ${tur === 'vana' ? '' : `
+        <div class="kurulum-ayirac"><span>veya</span></div>
+
+        <details class="kurulum-geojson">
+          <summary>🗺 GeoJSON yapıştır / yükle — TKGM Parsel Sorgu</summary>
+          <div class="kurulum-ipucu">
+            TKGM Parsel Sorgu'nun verdiği <code>Feature</code> ya da
+            <code>FeatureCollection</code> çıktısını olduğu gibi yapıştırın.
+            Parsel adı <code>adaNo/parselNo</code>'dan üretilir, TKGM'nin bildirdiği
+            alan kendi hesabımızla karşılaştırılır.
+            <br>MultiPolygon gibi çoklu geometriler içe aktarılmaz — kırmızı olarak listelenir,
+            haritadan elle çizmeniz gerekir.
+          </div>
+          <textarea id="k-geojson-metin" class="kurulum-geojson-alan" rows="6"
+                    placeholder='{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[36.25107,38.62688], ...]]},"properties":{"adaNo":"114","parselNo":"20","alan":"29,446.94"}}'></textarea>
+          <div class="kurulum-zona-alt">
+            <button class="kurulum-btn kurulum-btn-kucuk"
+                    onclick="kurulumGeojsonYapistir(this, '${tur}')">Ayrıştır</button>
+            <input type="file" id="k-geojson-dosya" accept=".geojson,.json"
+                   onchange="kurulumGeojsonSec(event, '${tur}')" style="display:none">
+            <button class="kurulum-btn kurulum-btn-kucuk kurulum-btn-sade"
+                    onclick="document.getElementById('k-geojson-dosya').click()">📄 .geojson dosyası seç</button>
+          </div>
+        </details>
+      `}
+    </div>
+  `
+}
+
+// İçe aktarılamayan geometriler — sessizce atlanmaz, kullanıcıya listelenir
+function desteklenmeyenlerHTML() {
+  const d = durum.iceAktarmaAdaylari?.desteklenmeyenler || []
+  if (d.length === 0) return ''
+
+  return `
+    <div class="kurulum-uyari-satir kurulum-uyari-kirmizi">
+      <b>${d.length} kayıt içe aktarılamıyor</b>
+      <div class="kurulum-kucuk">
+        ${d.map(x => `#${x.sira} ${oz(x.ad)} — ${oz(x.tip)}`).join('<br>')}
+      </div>
+      <div class="kurulum-kucuk">
+        Bu geometriler desteklenmiyor; haritadan elle çizmeniz gerekir.
+      </div>
     </div>
   `
 }
@@ -607,18 +658,21 @@ function adim3HTML() {
   if (!durum.bolge?.id) return bolgeGerekliHTML()
 
   const toplamAlan = durum.parseller.reduce((t, p) => t + Number(p.alan_m2 || 0), 0)
-  const adaylar = durum.kmlAdaylari?.parseller || []
+  const adaylar = durum.iceAktarmaAdaylari?.parseller || []
   const mevcutAdlar = durum.parseller.map(p => p.ad)
 
   return `
-    ${kmlYukleHTML('parsel')}
+    ${iceAktarHTML('parsel')}
 
-    ${adaylar.length > 0 ? `
+    ${(adaylar.length > 0 || (durum.iceAktarmaAdaylari?.desteklenmeyenler || []).length > 0) ? `
       <div class="kurulum-kart">
-        <h3>İçe aktarılacak parseller — ${oz(durum.kmlAdaylari.dosya)}</h3>
+        <h3>İçe aktarılacak parseller — ${oz(durum.iceAktarmaAdaylari.dosya)}</h3>
+        ${desteklenmeyenlerHTML()}
+        ${adaylar.length === 0 ? '' : `
         <div class="kurulum-ipucu">
           ${adaylar.length} poligon bulundu. Aktarmak istediklerinizi işaretleyin;
           adı ve zonasını burada düzeltebilirsiniz.
+          ${adaylar.some(a => a.hata) ? '<br><b style="color:#ff4757">Kırmızı satırlarda ada/parsel bilgisi yoktu — ad otomatik üretildi, kontrol edin.</b>' : ''}
         </div>
         <div class="kurulum-tablo-sar">
           <table class="kurulum-tablo">
@@ -628,13 +682,30 @@ function adim3HTML() {
             <tbody>
               ${adaylar.map((a, i) => {
                 const varOlan = mevcutAdlar.includes(a.ad)
+                // TKGM resmi alanı varsa varsayılan olarak o kaydedilir (tapudaki değer)
+                const resmiVar = a.resmi_alan_m2 != null
+                const sapmaBuyuk = a.alan_sapma != null && a.alan_sapma > 2
+                const satirSinifi = a.hata ? 'kurulum-satir-hata'
+                  : (varOlan || sapmaBuyuk) ? 'kurulum-satir-uyari' : ''
                 return `
-                  <tr class="${varOlan ? 'kurulum-satir-uyari' : ''}">
-                    <td><input type="checkbox" id="kp-sec-${i}" ${varOlan ? '' : 'checked'}></td>
+                  <tr class="${satirSinifi}">
+                    <td><input type="checkbox" id="kp-sec-${i}" ${(varOlan || a.hata) ? '' : 'checked'}></td>
                     <td><input id="kp-ad-${i}" value="${oz(a.ad)}">
-                        ${varOlan ? '<div class="kurulum-kucuk-uyari">bu ad zaten var</div>' : ''}</td>
-                    <td>${a.nokta_sayisi}</td>
-                    <td>${alanBicimle(a.alan_m2)}<div class="kurulum-kucuk">${dekarBicimle(a.alan_m2)}</div></td>
+                        ${varOlan ? '<div class="kurulum-kucuk-uyari">bu ad zaten var</div>' : ''}
+                        ${a.hata ? '<div class="kurulum-kucuk-uyari">ada/parsel yok — ad üretildi</div>' : ''}
+                        ${a.nitelik ? `<div class="kurulum-kucuk">${oz(a.nitelik)}</div>` : ''}</td>
+                    <td>${a.nokta_sayisi}
+                        ${a.ic_halka ? `<div class="kurulum-kucuk-uyari">${a.ic_halka} iç halka yok sayıldı</div>` : ''}</td>
+                    <td>
+                      ${alanBicimle(a.alan_m2)}<div class="kurulum-kucuk">${dekarBicimle(a.alan_m2)} · hesaplanan</div>
+                      ${resmiVar ? `
+                        <div class="kurulum-kucuk">TKGM resmi alan: ${alanBicimle(a.resmi_alan_m2)}</div>
+                        ${sapmaBuyuk ? `<div class="kurulum-kucuk-uyari">%${a.alan_sapma >= 100 ? Math.round(a.alan_sapma) : a.alan_sapma.toFixed(1)} fark — koordinatları kontrol edin</div>` : ''}
+                        <label class="kurulum-onay">
+                          <input type="checkbox" id="kp-resmi-${i}" checked> TKGM alanını kaydet
+                        </label>
+                      ` : ''}
+                    </td>
                     <td><select id="kp-zona-${i}">${zonaSecenekleri(null)}</select></td>
                   </tr>
                 `
@@ -642,8 +713,10 @@ function adim3HTML() {
             </tbody>
           </table>
         </div>
+        `}
         <div class="kurulum-zona-alt">
-          <button class="kurulum-btn kurulum-btn-kucuk" onclick="kurulumKmlIceAktar(this, 'parsel')">⬇ İçe aktar</button>
+          ${adaylar.length === 0 ? '' :
+            `<button class="kurulum-btn kurulum-btn-kucuk" onclick="kurulumKmlIceAktar(this, 'parsel')">⬇ İçe aktar</button>`}
           <button class="kurulum-btn kurulum-btn-kucuk kurulum-btn-sade" onclick="kurulumKmlTemizle()">Vazgeç</button>
         </div>
       </div>
@@ -712,16 +785,18 @@ function adim3HTML() {
 function adim4HTML() {
   if (!durum.bolge?.id) return bolgeGerekliHTML()
 
-  const cizgiAdaylari = durum.kmlAdaylari?.cizgiler || []
-  const noktaAdaylari = durum.kmlAdaylari?.noktalar || []
+  const cizgiAdaylari = durum.iceAktarmaAdaylari?.cizgiler || []
+  const noktaAdaylari = durum.iceAktarmaAdaylari?.noktalar || []
   const mevcutBoruAdlari = durum.borular.map(b => b.ad)
 
   return `
-    ${kmlYukleHTML('saha')}
+    ${iceAktarHTML('saha')}
 
-    ${(cizgiAdaylari.length > 0 || noktaAdaylari.length > 0) ? `
+    ${(cizgiAdaylari.length > 0 || noktaAdaylari.length > 0 ||
+       (durum.iceAktarmaAdaylari?.desteklenmeyenler || []).length > 0) ? `
       <div class="kurulum-kart">
-        <h3>İçe aktarılacaklar — ${oz(durum.kmlAdaylari.dosya)}</h3>
+        <h3>İçe aktarılacaklar — ${oz(durum.iceAktarmaAdaylari.dosya)}</h3>
+        ${desteklenmeyenlerHTML()}
 
         ${cizgiAdaylari.length > 0 ? `
           <div class="kurulum-ipucu">${cizgiAdaylari.length} çizgi (boru segmenti) bulundu.</div>
@@ -775,7 +850,8 @@ function adim4HTML() {
         ` : ''}
 
         <div class="kurulum-zona-alt">
-          <button class="kurulum-btn kurulum-btn-kucuk" onclick="kurulumKmlIceAktar(this, 'saha')">⬇ İçe aktar</button>
+          ${(cizgiAdaylari.length === 0 && noktaAdaylari.length === 0) ? '' :
+            `<button class="kurulum-btn kurulum-btn-kucuk" onclick="kurulumKmlIceAktar(this, 'saha')">⬇ İçe aktar</button>`}
           <button class="kurulum-btn kurulum-btn-kucuk kurulum-btn-sade" onclick="kurulumKmlTemizle()">Vazgeç</button>
         </div>
       </div>
@@ -904,7 +980,7 @@ function hatSecenekleri(secili) {
 function adim5HTML() {
   if (!durum.bolge?.id) return bolgeGerekliHTML()
 
-  const adaylar = durum.kmlAdaylari?.vanaSatirlari || []
+  const adaylar = durum.iceAktarmaAdaylari?.vanaSatirlari || []
   const liste = filtreliVanalar()
   const toplamFiskiye = durum.vanalar.reduce((t, v) => t + (v.fiskiye_sayisi || 0), 0)
   const eksikYon = durum.vanalar.filter(v => !v.ekim_yonu_derece).length
@@ -912,15 +988,15 @@ function adim5HTML() {
   const secili = durum.vanaSecili.size
 
   return `
-    ${kmlYukleHTML('vana')}
+    ${iceAktarHTML('vana')}
 
     ${adaylar.length > 0 ? `
       <div class="kurulum-kart">
-        <h3>İçe aktarılacak vanalar — ${oz(durum.kmlAdaylari.dosya)}</h3>
+        <h3>İçe aktarılacak vanalar — ${oz(durum.iceAktarmaAdaylari.dosya)}</h3>
         <div class="kurulum-ipucu">
           ${adaylar.length} satır çözüldü.
-          ${durum.kmlAdaylari.hataliSayisi > 0
-            ? `<b style="color:#ff4757">${durum.kmlAdaylari.hataliSayisi} satır ayrıştırılamadı</b> — kırmızı satırları elle doldurun.`
+          ${durum.iceAktarmaAdaylari.hataliSayisi > 0
+            ? `<b style="color:#ff4757">${durum.iceAktarmaAdaylari.hataliSayisi} satır ayrıştırılamadı</b> — kırmızı satırları elle doldurun.`
             : 'Sahada yazılan açıklamalardan fıskiye sayısı ve yön çıkarıldı; kontrol edin.'}
         </div>
         <div class="kurulum-tablo-sar">
@@ -1786,14 +1862,14 @@ window.kurulumAdimSec = (no) => {
   const adim = ADIMLAR.find(a => a.no === no)
   if (!adim?.hazir) return
   durum.adim = no
-  durum.kmlAdaylari = null   // her adım kendi yüklemesiyle başlasın
+  durum.iceAktarmaAdaylari = null   // her adım kendi yüklemesiyle başlasın
   durum.ozetAcik = false
   ciz()
 }
 
 window.kurulumBolgeSec = async (bolgeId) => {
   durum.bolge = durum.bolgeler.find(b => b.id === bolgeId) || null
-  durum.kmlAdaylari = null
+  durum.iceAktarmaAdaylari = null
   await bolgeAyrintilariYukle()
   ciz()
 }
@@ -1967,19 +2043,19 @@ async function kmlDosyayiIsle(dosya, tur) {
 
   const sonuc = kmlAyristir(metin)
   if (sonuc.hata) {
-    durum.kmlAdaylari = null
+    durum.iceAktarmaAdaylari = null
     ciz()
     return mesaj(sonuc.hata, 'hata')
   }
 
-  durum.kmlAdaylari = { dosya: dosya.name, ...sonuc }
+  durum.iceAktarmaAdaylari = { dosya: dosya.name, ...sonuc }
   if (tur === 'vana') vanaAdaylariniHazirla()
   ciz()
 
   const parca = tur === 'parsel'
     ? `${sonuc.parseller.length} poligon`
     : tur === 'vana'
-      ? `${durum.kmlAdaylari.vanaSatirlari.length} vana satırı`
+      ? `${durum.iceAktarmaAdaylari.vanaSatirlari.length} vana satırı`
       : `${sonuc.cizgiler.length} çizgi, ${sonuc.noktalar.length} nokta`
   mesaj(`✓ ${dosya.name} okundu — ${parca}. İşaretleyip içe aktarın.`, 'basari')
 }
@@ -1993,7 +2069,7 @@ function vanaAdaylariniHazirla() {
   const satirlar = []
   let hataliSayisi = 0
 
-  for (const nokta of durum.kmlAdaylari.noktalar) {
+  for (const nokta of durum.iceAktarmaAdaylari.noktalar) {
     const no = isaretciNoAyristir(nokta.ad)
     const coz = vanaAciklamaAyristir(nokta.aciklama)
 
@@ -2030,8 +2106,8 @@ function vanaAdaylariniHazirla() {
     }
   }
 
-  durum.kmlAdaylari.vanaSatirlari = satirlar
-  durum.kmlAdaylari.hataliSayisi = hataliSayisi
+  durum.iceAktarmaAdaylari.vanaSatirlari = satirlar
+  durum.iceAktarmaAdaylari.hataliSayisi = hataliSayisi
 }
 
 // Vananın parsel metnini parsel_id + vana_parselleri ile eşler
@@ -2059,12 +2135,52 @@ window.kurulumKmlBirak = (e, tur) => {
 }
 
 window.kurulumKmlTemizle = () => {
-  durum.kmlAdaylari = null
+  durum.iceAktarmaAdaylari = null
   ciz()
 }
 
+// ── GEOJSON İÇE AKTARMA (TKGM Parsel Sorgu) ──
+// Ayrıştırma sonrası akış KML ile ortaktır: aynı önizleme tablosu,
+// aynı çakışma uyarısı, aynı içe aktarma işleyicisi.
+function geojsonIsle(metin, kaynakAdi, tur) {
+  const sonuc = geojsonAyristir(metin)
+
+  if (sonuc.hata) {
+    durum.iceAktarmaAdaylari = null
+    ciz()
+    return mesaj(sonuc.hata, 'hata')
+  }
+
+  durum.iceAktarmaAdaylari = { dosya: kaynakAdi, ...sonuc }
+  ciz()
+
+  const parca = tur === 'parsel'
+    ? `${sonuc.parseller.length} parsel`
+    : `${sonuc.cizgiler.length} çizgi, ${sonuc.noktalar.length} nokta`
+  const eksik = sonuc.desteklenmeyenler.length
+  mesaj(`✓ ${kaynakAdi} okundu — ${parca}` +
+        (eksik ? `; ${eksik} kayıt desteklenmiyor.` : '. İşaretleyip içe aktarın.'),
+        eksik ? 'hata' : 'basari')
+}
+
+window.kurulumGeojsonYapistir = (btn, tur) => {
+  const metin = document.getElementById('k-geojson-metin')?.value || ''
+  if (!metin.trim()) return mesaj('Önce GeoJSON metnini yapıştırın.', 'hata')
+  geojsonIsle(metin, 'yapıştırılan GeoJSON', tur)
+}
+
+window.kurulumGeojsonSec = async (e, tur) => {
+  const dosya = e.target.files?.[0]
+  if (!dosya) return
+  try {
+    geojsonIsle(await dosya.text(), dosya.name, tur)
+  } catch (hata) {
+    mesaj('Dosya okunamadı: ' + hata.message, 'hata')
+  }
+}
+
 window.kurulumKmlIceAktar = async (btn, tur) => {
-  const a = durum.kmlAdaylari
+  const a = durum.iceAktarmaAdaylari
   if (!a) return
 
   btn.disabled = true
@@ -2077,12 +2193,15 @@ window.kurulumKmlIceAktar = async (btn, tur) => {
     let sira = durum.parseller.length
     for (let i = 0; i < a.parseller.length; i++) {
       if (!isaretli(`kp-sec-${i}`)) continue
-      const ad = deger(`kp-ad-${i}`) || a.parseller[i].ad
+      const aday = a.parseller[i]
+      const ad = deger(`kp-ad-${i}`) || aday.ad
+      // TKGM resmi alanı varsa ve kullanıcı bırakmışsa tapudaki değer kaydedilir
+      const resmiKullan = aday.resmi_alan_m2 != null && isaretli(`kp-resmi-${i}`)
       const { error } = await supabase.from('parseller').insert({
         bolge_id: durum.bolge.id,
         zona_id: deger(`kp-zona-${i}`) || null,
         ad,
-        alan_m2: a.parseller[i].alan_m2,
+        alan_m2: resmiKullan ? aday.resmi_alan_m2 : aday.alan_m2,
         koordinatlar: a.parseller[i].koordinatlar,
         renk: '#3fae4a',
         sira_no: ++sira
@@ -2166,7 +2285,7 @@ window.kurulumKmlIceAktar = async (btn, tur) => {
       `KML içe aktarıldı: ${a.dosya} — ${eklenen} kayıt (${durum.bolge.ad})`, durum.bolge.id)
   }
 
-  durum.kmlAdaylari = null
+  durum.iceAktarmaAdaylari = null
   await bolgeAyrintilariYukle()
   ciz()
 

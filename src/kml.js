@@ -1,11 +1,18 @@
 /*
- * KML ayrıştırma ve geometri yardımcıları
+ * Saha verisi içe/dışa aktarma ve geometri yardımcıları
  * Kurulum sihirbazı adım 3-4-5 bu modülü kullanır.
  *
- * Yeni bağımlılık yok: tarayıcının kendi DOMParser'ı kullanılır.
- * Koordinat sırası KML'de [lng, lat]'tir:
- *   - parseller  → [lng, lat] (GeoJSON sırası, olduğu gibi)
+ * İki giriş biçimi desteklenir, ikisi de aynı yapıyı döndürür:
+ *   - KML     (Google Earth)          → kmlAyristir()
+ *   - GeoJSON (TKGM Parsel Sorgu vb.) → geojsonAyristir()
+ *
+ * Yeni bağımlılık yok: KML için tarayıcının DOMParser'ı, GeoJSON için
+ * JSON.parse kullanılır.
+ *
+ * Koordinat sırası her iki biçimde de [lng, lat]'tir. İç gösterimde:
+ *   - parseller  → [lng, lat] (GeoJSON sırası, olduğu gibi bırakılır)
  *   - borular    → [lat, lng] (Leaflet polyline sırası, çevrilir)
+ *   - noktalar   → ayrı lat / lng alanları
  */
 
 const R = 6378137 // WGS84 ekvator yarıçapı (m)
@@ -366,6 +373,190 @@ export function kmlAyristir(metin) {
 
   if (sonuc.parseller.length === 0 && sonuc.cizgiler.length === 0 && sonuc.noktalar.length === 0) {
     sonuc.hata = 'Dosyada içe aktarılabilir alan, çizgi veya nokta bulunamadı.'
+  }
+
+  return sonuc
+}
+
+// ── GEOJSON AYRIŞTIRMA (TKGM Parsel Sorgu vb.) ──
+
+/*
+ * TKGM alan alanını okur: "29,446.94" → 29446.94
+ * Biçim İngilizcedir (binlik virgül, ondalık nokta) — Türkçe biçim
+ * ("29.446,94") beklenmez. Yanlış biçim gelirse sonuç binlerce kat
+ * saparaktan alan çapraz kontrolündeki uyarıya takılır, sessizce geçmez.
+ */
+export function resmiAlanOku(deger) {
+  if (deger == null || deger === '') return null
+  const sayi = parseFloat(String(deger).replace(/,/g, '').trim())
+  return Number.isFinite(sayi) ? sayi : null
+}
+
+// [lng, lat] (yükseklik varsa yok sayılır) → geçerli sayı çiftleri
+function geoKoordinatlar(dizi) {
+  if (!Array.isArray(dizi)) return []
+  return dizi
+    .map(c => Array.isArray(c) ? [Number(c[0]), Number(c[1])] : null)
+    .filter(c => c && Number.isFinite(c[0]) && Number.isFinite(c[1]))
+}
+
+/*
+ * Parsel adı — öncelik sırası:
+ *   1. adaNo/parselNo  ("114/20") — mevcut adlandırma biçimiyle birebir
+ *   2. properties.ozet
+ *   3. "Parsel N"
+ * Ada/parsel yoksa `uretildi` true döner: satır kırmızı işaretlenir,
+ * kullanıcı adı elle doğrular (asla sessizce kabul edilmez).
+ */
+function parselAdiUret(ozellikler, sira) {
+  const ada = String(ozellikler.adaNo ?? '').trim()
+  const parsel = String(ozellikler.parselNo ?? '').trim()
+  if (ada && parsel) return { ad: `${ada}/${parsel}`, uretildi: false }
+
+  const ozet = String(ozellikler.ozet ?? '').trim()
+  if (ozet) return { ad: ozet, uretildi: true }
+
+  return { ad: `Parsel ${sira}`, uretildi: true }
+}
+
+function genelAd(ozellikler, varsayilan) {
+  for (const alan of ['ad', 'name', 'ozet', 'baslik']) {
+    const d = String(ozellikler[alan] ?? '').trim()
+    if (d) return d
+  }
+  return varsayilan
+}
+
+// Feature | FeatureCollection → özellik dizisi (başka kök tipi kabul edilmez)
+function ozellikleriTopla(veri) {
+  if (veri?.type === 'FeatureCollection') {
+    return Array.isArray(veri.features) ? veri.features : []
+  }
+  if (veri?.type === 'Feature') return [veri]
+  return null
+}
+
+/*
+ * GeoJSON metnini ayrıştırır. Dönen yapı kmlAyristir() ile aynıdır,
+ * böylece önizleme/içe aktarma akışı ortaktır. Ek alanlar:
+ *   parseller[].resmi_alan_m2   TKGM'nin bildirdiği alan (varsa)
+ *   parseller[].alan_sapma      hesaplanan ile resmi alan farkı (%)
+ *   parseller[].ic_halka        yok sayılan iç halka (delik) sayısı
+ *   parseller[].hata            ada/parsel eksik → kullanıcı doğrulamalı
+ *   desteklenmeyenler[]         çizilemeyen geometriler (MultiPolygon vb.)
+ */
+export function geojsonAyristir(metin) {
+  const sonuc = { parseller: [], cizgiler: [], noktalar: [], desteklenmeyenler: [], hata: null }
+
+  if (!metin || !metin.trim()) {
+    sonuc.hata = 'GeoJSON boş.'
+    return sonuc
+  }
+
+  let veri
+  try {
+    veri = JSON.parse(metin)
+  } catch (e) {
+    sonuc.hata = 'Geçerli JSON değil: ' + e.message
+    return sonuc
+  }
+
+  const ozellikler = ozellikleriTopla(veri)
+  if (ozellikler === null) {
+    sonuc.hata = `Desteklenmeyen GeoJSON kökü: "${veri?.type || 'tip yok'}". ` +
+                 'Yalnızca Feature veya FeatureCollection kabul edilir.'
+    return sonuc
+  }
+  if (ozellikler.length === 0) {
+    sonuc.hata = 'GeoJSON içinde hiç Feature yok.'
+    return sonuc
+  }
+
+  ozellikler.forEach((o, i) => {
+    const sira = i + 1
+    const g = o?.geometry
+    const p = o?.properties || {}
+    const tip = g?.type
+
+    if (tip === 'Polygon') {
+      // İlk halka dış sınır; kalanlar delik — çizim motoru delik desteklemez
+      const halkalar = Array.isArray(g.coordinates) ? g.coordinates : []
+      const koordinatlar = geoKoordinatlar(halkalar[0])
+
+      if (koordinatlar.length < 3) {
+        sonuc.desteklenmeyenler.push({
+          sira, ad: parselAdiUret(p, sira).ad, tip: 'Polygon (geçersiz halka)'
+        })
+        return
+      }
+
+      const { ad, uretildi } = parselAdiUret(p, sira)
+      const alan_m2 = poligonAlanM2(koordinatlar)
+      const resmi_alan_m2 = resmiAlanOku(p.alan)
+
+      sonuc.parseller.push({
+        ad,
+        koordinatlar,
+        nokta_sayisi: koordinatlar.length,
+        alan_m2,
+        resmi_alan_m2,
+        // Sapma bilgi amaçlıdır; %2 üstü sarı uyarı olarak gösterilir
+        alan_sapma: (resmi_alan_m2 && resmi_alan_m2 > 0)
+          ? Math.abs(alan_m2 - resmi_alan_m2) / resmi_alan_m2 * 100
+          : null,
+        ic_halka: Math.max(0, halkalar.length - 1),
+        nitelik: String(p.nitelik ?? '').trim() || null,
+        hata: uretildi
+      })
+      return
+    }
+
+    if (tip === 'LineString') {
+      const ham = geoKoordinatlar(g.coordinates)
+      if (ham.length < 2) {
+        sonuc.desteklenmeyenler.push({ sira, ad: genelAd(p, `Çizgi ${sira}`), tip: 'LineString (geçersiz)' })
+        return
+      }
+      const koordinatlar = ham.map(([lng, lat]) => [lat, lng])   // Leaflet sırası
+      sonuc.cizgiler.push({
+        ad: genelAd(p, `Çizgi ${sira}`),
+        koordinatlar,
+        nokta_sayisi: koordinatlar.length,
+        uzunluk_m: cizgiUzunlukM(koordinatlar)
+      })
+      return
+    }
+
+    if (tip === 'Point') {
+      const ham = geoKoordinatlar([g.coordinates])
+      if (ham.length === 0) {
+        sonuc.desteklenmeyenler.push({ sira, ad: genelAd(p, `Nokta ${sira}`), tip: 'Point (geçersiz)' })
+        return
+      }
+      const ad = genelAd(p, `Nokta ${sira}`)
+      sonuc.noktalar.push({
+        ad,
+        lng: ham[0][0],
+        lat: ham[0][1],
+        tip: noktaTipiTahmin(ad),
+        aciklama: String(p.aciklama ?? p.description ?? '').trim() || null
+      })
+      return
+    }
+
+    // MultiPolygon, GeometryCollection, geometrisiz kayıt: tahmin edilmez
+    sonuc.desteklenmeyenler.push({
+      sira,
+      ad: genelAd(p, parselAdiUret(p, sira).ad),
+      tip: tip || 'geometri yok'
+    })
+  })
+
+  if (sonuc.parseller.length === 0 && sonuc.cizgiler.length === 0 && sonuc.noktalar.length === 0) {
+    sonuc.hata = sonuc.desteklenmeyenler.length > 0
+      ? `İçe aktarılabilir geometri yok. Desteklenmeyen ${sonuc.desteklenmeyenler.length} kayıt bulundu ` +
+        `(${[...new Set(sonuc.desteklenmeyenler.map(x => x.tip))].join(', ')}).`
+      : 'GeoJSON içinde içe aktarılabilir alan, çizgi veya nokta bulunamadı.'
   }
 
   return sonuc
