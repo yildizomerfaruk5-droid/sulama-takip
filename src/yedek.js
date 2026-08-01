@@ -4,7 +4,9 @@ import { logKaydet } from './log.js'
 const YEDEK_TABLOLARI = [
   'bolgeler', 'zonalar', 'hatlar', 'vanalar', 'turlar',
   'sulama_kayitlari', 'gubreler', 'gubre_uygulamalari',
-  'sistem_durumu', 'giris_gecmisi', 'olay_loglari'
+  'sistem_durumu', 'giris_gecmisi', 'olay_loglari',
+  // Saha çizimleri artık koddan değil veritabanından geliyor — yedeğe dahil
+  'parseller', 'boru_hatlari', 'saha_noktalari', 'vana_parselleri'
 ]
 
 // Tum veritabanini tek JSON dosyasi olarak indirir

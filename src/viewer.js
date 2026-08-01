@@ -150,9 +150,11 @@ export async function viewerRender() {
 
   const haritaEl = document.getElementById('harita')
   if (haritaEl) {
-    haritaOlustur('harita', bolge)
-    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
-    vanalariHaritayaCiz(bolge?.id, sistemDurumu, tamamlananlar)
+    // Harita saha verisini veritabanından getirir; çizimler hazır olunca eklenir
+    haritaOlustur('harita', bolge).then(() => {
+      hatlariHaritayaCiz(sistemDurumu, tamamlananlar, bolge?.id)
+      vanalariHaritayaCiz(bolge?.id, sistemDurumu, tamamlananlar)
+    })
   }
 
   if (acik) viewerSayacBaslat()

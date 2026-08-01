@@ -84,7 +84,13 @@ varsayılanı 'sulama' olduğu için ayrımda KULLANILMAZ — tarihçe: bkz. com
 - [ ] Kalan hat grupları (güney-üst, kuzeybatı kolu) + Zona 2 envanteri
 - [ ] Karavan konumu, harita renk lejantı
 - [ ] Gübreleme programı + işçi resimli teyidi
-- [ ] Bölge çizimlerinin (parsel/boru) veritabanından okunması
+- [x] Bölge çizimlerinin (parsel/boru) veritabanından okunması
+      (`sql/README.md` → kurulum sihirbazı aşama 1-2)
+- [x] Kurulum sihirbazı arayüzü (`KURULUM_SIHIRBAZI_SPEC.md` Parça B)
+      — 6 adımın tamamı (bölge, zona, parsel, boru/nokta, vana + KML
+      yükleyici + kural editörü, hatlar + kuyuya göre otomatik sıralama),
+      kurulum özeti/tamamlama, bölge kopyalama, KML dışa aktarma ve
+      kurulum kilidi (sulanan hat korunur)
 - [ ] **Yerel/çevrimdışı kurulum + yerel yapay zekâ** (aşağıya bak)
 
 ## Vizyon: Yerel Makinede Çalışma + Offline Yapay Zekâ

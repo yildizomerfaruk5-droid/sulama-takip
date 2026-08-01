@@ -42,7 +42,8 @@ const OLAY_GORUNUM = {
   sure_degistirildi:  ['⏱', '#8e44ad'],
   kayit_eklendi:      ['📝', '#5dade2'],
   yedek_alindi:       ['💾', '#00cec9'],
-  kayit_silindi:      ['🗑', '#ff4757']
+  kayit_silindi:      ['🗑', '#ff4757'],
+  kurulum:            ['⚙', '#5dade2']
 }
 
 export function logHTML(loglar) {

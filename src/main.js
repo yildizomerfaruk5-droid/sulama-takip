@@ -16,6 +16,7 @@ import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
 import { logKaydet, loglariGetir, logHTML, ziyaretcileriGetir, ziyaretciHTML } from './log.js'
 import { yedekIndir } from './yedek.js'
+import { kurulumEkraniAc } from './kurulum.js'
 
 
 let sayacInterval = null
@@ -24,6 +25,18 @@ let sistemDurumu = null
 let profil = null      // giriş yapan kullanıcının profili (rol + bölge)
 let bolgeler = []      // kullanıcının erişebildiği bölgeler
 let aktifBolge = null  // seçili bölge
+let kurulumAcik = false // kurulum sihirbazı açıkken panel yeniden çizilmemeli
+
+// Geçiş dönemi: profili olmayan giriş yapmış kullanıcı yönetici sayılır
+function aktifRol() {
+  return profil?.rol || 'yonetici'
+}
+
+// Realtime/sayaç tetiklemeleri kurulum ekranını silmesin
+function guvenliRender() {
+  if (kurulumAcik) return
+  render()
+}
 
 // ── RENDER ──
 async function render() {
@@ -130,10 +143,12 @@ async function render() {
   gecmisKayitlariGetir(aktifBolge.id).then(kayitlar => {
     const haritaEl = document.getElementById('harita')
   if (haritaEl) {
-    haritaOlustur('harita', aktifBolge)
-    hatlariHaritayaCiz(sistemDurumu, tamamlananlar, aktifBolge.id)
-    vanalariHaritayaCiz(aktifBolge.id, sistemDurumu, tamamlananlar)
-    koordinatSeciciBaslat()
+    // Harita saha verisini veritabanından getirir; çizimler hazır olunca eklenir
+    haritaOlustur('harita', aktifBolge).then(() => {
+      hatlariHaritayaCiz(sistemDurumu, tamamlananlar, aktifBolge.id)
+      vanalariHaritayaCiz(aktifBolge.id, sistemDurumu, tamamlananlar)
+      koordinatSeciciBaslat()
+    })
   }
   girisGecmisiniGetir().then(kayitlar => {
     const el = document.getElementById('giris-gecmisi-liste')
@@ -203,6 +218,21 @@ function header() {
         <div class="meta">${new Date().toLocaleDateString('tr-TR', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         })}</div>
+        ${aktifRol() === 'yonetici' ? `
+          <button
+            onclick="kurulumAc()"
+            title="Bölge, zona, parsel ve vana tanımları"
+            style="
+              padding: 6px 14px;
+              background: transparent;
+              border: 1px solid #2c3e50;
+              border-radius: 6px;
+              color: #5dade2;
+              font-size: 12px;
+              cursor: pointer;
+            "
+          >⚙️ Kurulum</button>
+        ` : ''}
         <button
           onclick="cikisYap()"
           style="
@@ -619,7 +649,7 @@ supabase
     event: '*',
     schema: 'public',
     table: 'sistem_durumu'
-  }, () => render())
+  }, () => guvenliRender())
   .subscribe()
 
 // ── SAYAÇ ──
@@ -683,7 +713,7 @@ function sayaciBaslat() {
       // Sunucunun geçişi yapmasına fırsat ver, sonra ekranı tazele
       if (gecenMs >= limitMs + 90000) {
         clearInterval(sayacInterval)
-        render()
+        guvenliRender()
       }
     }
   }, 1000)
@@ -814,6 +844,22 @@ window.kayitSil = async (kayitId) => {
     `Hat-${k?.hatlar?.hat_no ?? '?'} kaydı silindi${k?.ilac_gubre_notu ? ' (' + k.ilac_gubre_notu + ')' : ''}`,
     aktifBolge.id)
   render()
+}
+
+// ── KURULUM SİHİRBAZI (yalnızca yönetici) ──
+window.kurulumAc = async () => {
+  if (aktifRol() !== 'yonetici') return
+  kurulumAcik = true
+  if (sayacInterval) clearInterval(sayacInterval)
+
+  await kurulumEkraniAc({
+    bolgeId: aktifBolge?.id,
+    // Panele dönüşte bölge listesi yeniden okunur (yeni bölge eklenmiş olabilir)
+    geriDon: () => {
+      kurulumAcik = false
+      uygulamaBaslat()
+    }
+  })
 }
 
 window.bolgeDegistir = (bolgeId) => {
