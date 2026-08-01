@@ -206,8 +206,14 @@ end $$;
 --      vanalar (kayit satiri)  136   -- 96 farkli isaretci; alt/ust ayri satir
 --      vanalar (farkli isaretci) 96   -- 1-20 ve 22-97 (21 numarali isaretci yok)
 --      vanalar (parsel_id dolu) 129   -- parseli bos olan 40-46 haric (7 kayit)
---      vana_parselleri          148   -- 1-19 arasi cift parselli ('119/7-119/6')
 --      cizim_kurali dolu vana     8   -- 7 kural tipi (33 alt + 34 alt ayni kural)
+--
+--      vana_parselleri: SABIT SAYI YOK. Her vananin `parsel` metnindeki
+--      parsel adi kadar satir olusur (orn. '119/7-119/6' -> 2 satir).
+--      Dogru kontrol asagidaki 4. sorgudur: metinle iliski tablosu
+--      arasinda fark olmamalidir.
+--      (31 Temmuz 2026 itibariyla uretimdeki deger: 156 — 36-39 numarali
+--       vanalar sahada '119/9-119/11' olarak duzeltildigi icin cift parselli.)
 with b as (select id from bolgeler where kod = 'kayseri-ana')
 select 'parseller'                as tablo, count(*) as satir from parseller      where bolge_id = (select id from b)
 union all
