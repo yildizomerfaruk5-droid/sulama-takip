@@ -1541,8 +1541,10 @@ function ozetHTML() {
     <div class="kurulum-kart">
       <h3>Kurulumu tamamla</h3>
       <div class="kurulum-ipucu">
-        "Kurulumu tamamla" bölgeyi bölge seçicide görünür yapar. Eksikler varken de
-        tamamlanabilir — sonradan her adımdan düzenlemeye devam edebilirsiniz.
+        Bölge işaretlenene kadar bölge seçicide <b>🚧</b> ile görünür; tamamlandığında
+        <b>📍</b> olur. Bölge her hâlükârda listede kalır, gizlenmez.
+        Eksikler varken de tamamlanabilir — sonradan her adımdan düzenlemeye
+        devam edebilirsiniz.
       </div>
       ${durum.bolge.kurulum_tamam
         ? '<div class="kurulum-ozet-temiz">✓ Bu bölgenin kurulumu tamamlanmış olarak işaretli.</div>'

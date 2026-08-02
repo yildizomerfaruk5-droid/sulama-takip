@@ -186,13 +186,24 @@ async function render() {
 
 
 // ── BÖLGE SEÇİCİ ──
+// Kurulumu tamamlanmamış bölgeler listede KALIR ama 🚧 ile işaretlenir.
+// Gizlemek tehlikeli olurdu: kurulum_tamam varsayılanı false olduğu için
+// bayrağı henüz açılmamış bir bölge (Kayseri dahil) listeden düşer ve
+// sulama yapan sistem bölgesiz kalırdı.
+function bolgeIsareti(b) {
+  return b?.kurulum_tamam === false ? '🚧' : '📍'
+}
+
 function bolgeSecici() {
   // Tek bölge varsa (veya denetleyici kilitliyse) sadece adı göster
   if (bolgeler.length <= 1) {
-    return `<div class="meta" style="color:#5dade2;">📍 ${aktifBolge?.ad || ''}</div>`
+    return `<div class="meta" style="color:#5dade2;"
+      ${aktifBolge?.kurulum_tamam === false ? 'title="Kurulum tamamlanmış olarak işaretlenmedi"' : ''}
+      >${bolgeIsareti(aktifBolge)} ${aktifBolge?.ad || ''}</div>`
   }
   return `
-    <select onchange="bolgeDegistir(this.value)" style="
+    <select onchange="bolgeDegistir(this.value)"
+      title="🚧 = kurulumu tamamlanmamış bölge" style="
       padding: 6px 10px;
       background: #0f1923;
       border: 1px solid #2c3e50;
@@ -202,7 +213,7 @@ function bolgeSecici() {
       cursor: pointer;
     ">
       ${bolgeler.map(b => `
-        <option value="${b.id}" ${b.id === aktifBolge?.id ? 'selected' : ''}>📍 ${b.ad}</option>
+        <option value="${b.id}" ${b.id === aktifBolge?.id ? 'selected' : ''}>${bolgeIsareti(b)} ${b.ad}</option>
       `).join('')}
     </select>
   `
