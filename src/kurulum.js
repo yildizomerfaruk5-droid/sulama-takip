@@ -15,13 +15,20 @@ import {
   alanBicimle, dekarBicimle, uzunlukBicimle
 } from './kml.js'
 
+// Her adımın kendi ekranında başlığın altında gösterilen tek satırlık ipucu
 const ADIMLAR = [
-  { no: 1, ikon: '📍', ad: 'Bölge',    hazir: true },
-  { no: 2, ikon: '🗂', ad: 'Zonalar',  hazir: true },
-  { no: 3, ikon: '🟩', ad: 'Parseller', hazir: true },
-  { no: 4, ikon: '🔧', ad: 'Boru ve noktalar', hazir: true },
-  { no: 5, ikon: '🚰', ad: 'Vanalar',  hazir: true },
-  { no: 6, ikon: '💧', ad: 'Hatlar',   hazir: true }
+  { no: 1, ikon: '📍', ad: 'Bölge', hazir: true,
+    ipucu: 'Yeni arazinin temel bilgileri: ad, konum, harita merkezi ve fıskiye ölçüleri.' },
+  { no: 2, ikon: '🗂', ad: 'Zonalar', hazir: true,
+    ipucu: 'Araziyi mantıksal bölümlere ayırın; sulama zonaları sırayla dolaşır.' },
+  { no: 3, ikon: '🟩', ad: 'Parseller', hazir: true,
+    ipucu: 'Tarla sınırlarını KML/GeoJSON yükleyerek ya da haritaya tıklayarak çizin.' },
+  { no: 4, ikon: '🔧', ad: 'Boru ve noktalar', hazir: true,
+    ipucu: 'Ana boru güzergâhını çizin, kuyu ve depo gibi sabit noktaları işaretleyin.' },
+  { no: 5, ikon: '🚰', ad: 'Vanalar', hazir: true,
+    ipucu: 'Vanaları tek tek ekleyin veya KML\'den toplu içe aktarın; ekim yönünü haritada iki nokta seçerek hesaplayabilirsiniz.' },
+  { no: 6, ikon: '💧', ad: 'Hatlar', hazir: true,
+    ipucu: 'Vanaları gruplayıp sulama hatlarını oluşturun; fıskiye toplamı otomatik hesaplanır.' }
 ]
 
 // Hat kapasitesi bandı (spec 5. Adım 6)
@@ -108,6 +115,28 @@ function kilitUyarisi(nerede) {
         `Sulama sürerken aktif hattın yapısı değiştirilirse sayaç ve ` +
         `otomatik hat geçişi bozulur.\n\nÖnce sistemi durdurun veya ` +
         `sıradaki hatta geçilmesini bekleyin.`)
+}
+
+// ── KULLANICI TERCİHLERİ ──
+// Harita katman tercihleriyle aynı desen: tek bir JSON anahtarı altında
+// tutulur, bozuk veri sihirbazı çökertmesin diye okuma korumalıdır.
+function kurulumTercihi(ad, varsayilan) {
+  try {
+    const t = JSON.parse(localStorage.getItem('kurulum_tercihleri') || '{}')
+    return t[ad] ?? varsayilan
+  } catch {
+    return varsayilan
+  }
+}
+
+function kurulumTercihKaydet(ad, deger) {
+  try {
+    const t = JSON.parse(localStorage.getItem('kurulum_tercihleri') || '{}')
+    t[ad] = deger
+    localStorage.setItem('kurulum_tercihleri', JSON.stringify(t))
+  } catch {
+    // Tercih kaydedilemezse akış durmasın (gizli sekme, dolu depolama)
+  }
 }
 
 // Öznitelik içine güvenli yazım
@@ -289,6 +318,8 @@ function ciz() {
         </div>
       ` : ''}
 
+      ${ogreticiHTML()}
+
       <div class="kurulum-sekmeler">
         ${ADIMLAR.map(a => `
           <button
@@ -297,6 +328,8 @@ function ciz() {
           >${a.ikon} ${a.no}. ${a.ad}</button>
         `).join('')}
       </div>
+
+      ${adimBasligiHTML()}
 
       <div class="kurulum-govde">
         ${durum.ozetAcik ? ozetHTML() : ''}
@@ -552,6 +585,57 @@ function adim2HTML() {
     <div class="kurulum-alt-cubuk">
       <span id="k-mesaj" class="kurulum-mesaj"></span>
       <button class="kurulum-btn kurulum-btn-sade" onclick="kurulumAdimSec(1)">← Bölge</button>
+    </div>
+  `
+}
+
+// ── ÖĞRETİCİ ──
+// Sihirbazı ilk açan kişi ne yapacağını buradan görür. Kapatılınca
+// tercih localStorage'a yazılır ve bir daha kapalı gelir; küçük bir
+// bağlantıyla her zaman geri açılabilir.
+function ogreticiHTML() {
+  if (!kurulumTercihi('ogretici_acik', true)) {
+    return `
+      <button class="kurulum-ogretici-ac" onclick="kurulumOgretici(true)">
+        ❓ Nasıl çalışır?
+      </button>
+    `
+  }
+
+  return `
+    <div class="kurulum-ogretici">
+      <div class="kurulum-ogretici-ust">
+        <b>❓ Nasıl çalışır?</b>
+        <button class="kurulum-mini" title="Kapat — bir daha gösterilmez"
+                onclick="kurulumOgretici(false)">✕</button>
+      </div>
+      <ol class="kurulum-ogretici-liste">
+        ${ADIMLAR.map(a => `<li><b>${a.ad}</b> — ${a.ipucu}</li>`).join('')}
+      </ol>
+      <div class="kurulum-ogretici-son">
+        Sona gelince <b>"Kurulumu tamamla"</b> ile bölge kullanıma hazır olur.
+      </div>
+    </div>
+  `
+}
+
+// Adım başlığı + o adıma özel tek satırlık ipucu
+function adimBasligiHTML() {
+  if (durum.ozetAcik) {
+    return `
+      <div class="kurulum-adim-basligi">
+        <h2>📋 Kurulum özeti</h2>
+        <p>Eksikleri gözden geçirin ve kurulumu tamamlayın.</p>
+      </div>
+    `
+  }
+
+  const a = ADIMLAR.find(x => x.no === durum.adim)
+  if (!a) return ''
+  return `
+    <div class="kurulum-adim-basligi">
+      <h2>${a.ikon} ${a.no}. ${oz(a.ad)}</h2>
+      <p>${oz(a.ipucu)}</p>
     </div>
   `
 }
@@ -1860,6 +1944,11 @@ function mesaj(metin, tip = 'bilgi') {
 }
 
 // ── GLOBAL FONKSİYONLAR ──
+window.kurulumOgretici = (acik) => {
+  kurulumTercihKaydet('ogretici_acik', acik)
+  ciz()
+}
+
 window.kurulumAdimSec = (no) => {
   const adim = ADIMLAR.find(a => a.no === no)
   if (!adim?.hazir) return
