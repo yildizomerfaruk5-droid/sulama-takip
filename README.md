@@ -90,7 +90,30 @@ varsayılanı 'sulama' olduğu için ayrımda KULLANILMAZ — tarihçe: bkz. com
       — 6 adımın tamamı (bölge, zona, parsel, boru/nokta, vana + KML
       yükleyici + kural editörü, hatlar + kuyuya göre otomatik sıralama),
       kurulum özeti/tamamlama, bölge kopyalama, KML dışa aktarma ve
-      kurulum kilidi (sulanan hat korunur)
+      kurulum kilidi (aşağıya bak)
+
+### Kurulum kilidi — tam olarak ne korunuyor
+
+Sulama açıkken (`sistem_durumu.sistem_acik`) o an sulanan hat
+(`aktif_hat_id`) kurulum ekranından şöyle korunur:
+
+| İşlem | Davranış |
+|---|---|
+| Aktif hattı silme | **Engellenir** (buton kapalı + uyarı) |
+| Aktif hattaki vanayı silme | **Engellenir** |
+| Vanayı aktif hatta ekleme / hattan çıkarma | **Engellenir** (tekil, toplu ve hat editörü yolları dahil) |
+| Aktif hattın süresi veya sıra no'su | **Açık onay istenir** — eski/yeni değer gösterilir |
+| Hat sırası değiştirme, kuyuya göre sıralama | Aktif hat etkileniyorsa **açık onay istenir** |
+
+Süre ve sıra engellenmez çünkü sahada meşru ihtiyaçtır (sulamayı
+uzatmak gibi); ama sunucudaki `hat_gecis_kontrol()` geçişi aktif hattın
+`varsayilan_sure_dk` değerine göre tetiklediği ve sıradaki hattı
+`sira_no`'dan seçtiği için onay penceresinde sonucu yazılı olarak
+gösterilir.
+
+**Korunmayanlar** (akışı etkilemez, yalnızca görünümü değiştirir):
+fıskiye sayısı, ekim yönü, parsel bağlantısı, çizim kuralı ve vana
+konumu — bunlar sulama sürerken de serbestçe düzenlenebilir.
 - [ ] **Yerel/çevrimdışı kurulum + yerel yapay zekâ** (aşağıya bak)
 
 ## Vizyon: Yerel Makinede Çalışma + Offline Yapay Zekâ

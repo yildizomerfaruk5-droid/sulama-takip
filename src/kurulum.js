@@ -117,6 +117,27 @@ function kilitUyarisi(nerede) {
         `sıradaki hatta geçilmesini bekleyin.`)
 }
 
+/*
+ * Engellenmeyen ama akışı etkileyen düzenlemeler için açık onay.
+ * Sunucudaki hat_gecis_kontrol() geçişi aktif hattın varsayilan_sure_dk
+ * değerine göre tetikler, sıradaki hattı da zona içindeki sira_no'dan
+ * seçer. Bu iki alan sulama sürerken değişirse geçiş zamanı veya sırası
+ * kayar — kullanıcı ne yaptığını bilerek onaylamalı.
+ */
+function aktifHatOnayi(neDegisiyor) {
+  return confirm(
+    `⚠️ ŞU ANDA SULANAN HAT ETKİLENİYOR\n\n${neDegisiyor}\n\n` +
+    `Otomatik hat geçişi bu bilgiye göre çalışıyor.\nDevam edilsin mi?`)
+}
+
+// Vananın hat ataması aktif hatta dokunuyor mu?
+// (hem aktif hattan çıkarma hem aktif hatta ekleme aynı ölçüde riskli)
+function vanaAtamasiAktifHattaDokunuyor(vanalar, yeniHatId) {
+  if (!durum.sistemAcik || !durum.aktifHatId) return false
+  if (yeniHatId && yeniHatId === durum.aktifHatId) return true
+  return vanalar.some(v => v.hat_id === durum.aktifHatId && v.hat_id !== yeniHatId)
+}
+
 // ── KULLANICI TERCİHLERİ ──
 // Harita katman tercihleriyle aynı desen: tek bir JSON anahtarı altında
 // tutulur, bozuk veri sihirbazı çökertmesin diye okuma korumalıdır.
@@ -2662,6 +2683,13 @@ window.kurulumTopluUygula = async (btn) => {
     return mesaj('Uygulanacak bir alan doldurun.', 'hata')
   }
 
+  // Hat editöründeki kilidin toplu düzenlemeden atlatılmaması için
+  // aynı koruma burada da uygulanır (spec 5.3)
+  const seciliVanalar = durum.vanalar.filter(v => idler.includes(v.id))
+  if (vanaAtamasiAktifHattaDokunuyor(seciliVanalar, hatId)) {
+    return kilitUyarisi('toplu hat ataması')
+  }
+
   btn.disabled = true
   mesaj(`${idler.length} vana güncelleniyor...`)
 
@@ -2691,6 +2719,15 @@ window.kurulumVanaKaydet = async (id, btn) => {
   const no = sayi(`v-no-${id}`)
   if (no == null) return mesaj('İşaretçi no zorunlu.', 'hata')
 
+  const yeniHatId = deger(`v-hat-${id}`) || null
+  const vana = durum.vanalar.find(v => v.id === id)
+
+  // Aktif hattın vana bileşimi sulama sürerken değiştirilemez —
+  // hat editöründeki kilidin aynısı (spec 5.3)
+  if (vana && vanaAtamasiAktifHattaDokunuyor([vana], yeniHatId)) {
+    return kilitUyarisi('hat ataması değişikliği')
+  }
+
   btn.disabled = true
   const parselMetni = deger(`v-parsel-${id}`) || null
   const { error } = await supabase.from('vanalar').update({
@@ -2699,7 +2736,7 @@ window.kurulumVanaKaydet = async (id, btn) => {
     fiskiye_sayisi: sayi(`v-fiskiye-${id}`, 0),
     parsel: parselMetni,
     ekim_yonu_derece: sayi(`v-ekim-${id}`),
-    hat_id: deger(`v-hat-${id}`) || null
+    hat_id: yeniHatId
   }).eq('id', id)
 
   if (error) { btn.disabled = false; return mesaj('Kaydedilemedi: ' + error.message, 'hata') }
@@ -2953,12 +2990,35 @@ window.kurulumHatKaydet = async (id, btn) => {
   const hatNo = sayi(`h-no-${id}`)
   if (hatNo == null) return mesaj('Hat no zorunlu.', 'hata')
 
+  const yeniSure = sayi(`h-sure-${id}`, 480)
+  const yeniSira = sayi(`h-sira-${id}`, 1)
+
+  // Sulanan hattın süresi veya sırası akışı doğrudan değiştirir:
+  // sunucudaki hat_gecis_kontrol() geçişi süreye göre tetikler,
+  // sıradaki hattı da sira_no'dan seçer. Engellemek yerine ne olacağını
+  // söyleyip açık onay isteriz — süre uzatmak meşru bir saha ihtiyacı.
+  if (aktifHatKilitli(id)) {
+    const h = durum.hatlar.find(x => x.id === id)
+    const degisenler = []
+    if (h && yeniSure !== h.varsayilan_sure_dk) {
+      degisenler.push(`• Süre: ${h.varsayilan_sure_dk} dk → ${yeniSure} dk ` +
+        `(geçiş zamanı kayar; yeni süre şimdiye kadar geçen süreden kısaysa geçiş hemen tetiklenebilir)`)
+    }
+    if (h && yeniSira !== h.sira_no) {
+      degisenler.push(`• Sıra no: ${h.sira_no} → ${yeniSira} (sıradaki hat değişebilir)`)
+    }
+    if (degisenler.length > 0 &&
+        !aktifHatOnayi(`Hat-${hatNo} şu anda sulanıyor.\n\n${degisenler.join('\n')}`)) {
+      return
+    }
+  }
+
   btn.disabled = true
   const { error } = await supabase.from('hatlar').update({
     hat_no: hatNo,
-    sira_no: sayi(`h-sira-${id}`, 1),
+    sira_no: yeniSira,
     parsel_bilgisi: deger(`h-parsel-${id}`) || null,
-    varsayilan_sure_dk: sayi(`h-sure-${id}`, 480)
+    varsayilan_sure_dk: yeniSure
   }).eq('id', id)
   btn.disabled = false
 
@@ -3006,6 +3066,13 @@ window.kurulumHatSiraDegis = async (id, yon) => {
   const komsu = grup[idx + yon]
   if (!komsu) return
 
+  // Sıra, sıradaki hattın hangisi olacağını belirler (hat_gecis_kontrol)
+  if ((aktifHatKilitli(h.id) || aktifHatKilitli(komsu.id)) &&
+      !aktifHatOnayi(`Hat-${h.hat_no} ile Hat-${komsu.hat_no} sırası değişecek; ` +
+                     `biri şu anda sulanıyor.`)) {
+    return
+  }
+
   const s1 = h.sira_no, s2 = komsu.sira_no
   await supabase.from('hatlar').update({ sira_no: s2 }).eq('id', h.id)
   await supabase.from('hatlar').update({ sira_no: s1 }).eq('id', komsu.id)
@@ -3036,6 +3103,14 @@ window.kurulumKuyuyaSirala = async (zonaId, btn) => {
 
   const onizleme = mesafeli.map(x => `Hat-${x.h.hat_no}`).join(' → ')
   if (!confirm(`Önerilen sıra (kuyuya yakından uzağa):\n${onizleme}\n\nUygulansın mı?`)) return
+
+  // Tüm zonanın sira_no'su yeniden yazılıyor; sulanan hat bu zonadaysa
+  // sıradaki hat değişebilir
+  if (zonaHatlari.some(h => aktifHatKilitli(h.id)) &&
+      !aktifHatOnayi('Bu zonadaki hatların tamamının sırası yeniden yazılacak ' +
+                     've şu anda sulanan hat da bu zonada.')) {
+    return
+  }
 
   btn.disabled = true
   for (let i = 0; i < mesafeli.length; i++) {
