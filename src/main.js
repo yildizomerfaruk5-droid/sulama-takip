@@ -17,6 +17,10 @@ import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istati
 import { logKaydet, loglariGetir, logHTML, ziyaretcileriGetir, ziyaretciHTML } from './log.js'
 import { yedekIndir } from './yedek.js'
 import { kurulumEkraniAc } from './kurulum.js'
+import {
+  offlineBaslat, kuyrukSayisi, kuyrukListesi, kuyruktanSil,
+  senkronBaslat, kuyrukRozetiHTML, takiliOgeler
+} from './offline.js'
 
 
 let sayacInterval = null
@@ -26,6 +30,7 @@ let profil = null      // giriş yapan kullanıcının profili (rol + bölge)
 let bolgeler = []      // kullanıcının erişebildiği bölgeler
 let aktifBolge = null  // seçili bölge
 let kurulumAcik = false // kurulum sihirbazı açıkken panel yeniden çizilmemeli
+let bekleyenKayit = 0   // çevrimdışı kuyrukta bekleyen veri girişi sayısı
 
 // Geçiş dönemi: profili olmayan giriş yapmış kullanıcı yönetici sayılır
 function aktifRol() {
@@ -229,6 +234,7 @@ function header() {
         <div class="meta">${new Date().toLocaleDateString('tr-TR', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         })}</div>
+        <span id="kuyruk-rozet-yuvasi">${kuyrukRozetiHTML(bekleyenKayit)}</span>
         ${aktifRol() === 'yonetici' ? `
           <button
             onclick="kurulumAc()"
@@ -353,7 +359,7 @@ window.hatTikla = async (hatId) => {
     .single()
 
   document.body.insertAdjacentHTML('beforeend', popupHTML(hat))
-  popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id)
+  popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id, `Hat-${hat.hat_no}`)
 }
 
 window.sistemiBaslat = async () => {
@@ -857,6 +863,82 @@ window.kayitSil = async (kayitId) => {
   render()
 }
 
+// ── ÇEVRİMDIŞI KUYRUK ──
+// Rozet tam yeniden çizim beklemeden tazelenir (kuyruk arka planda boşalır)
+window.addEventListener('kuyruk-degisti', (e) => {
+  bekleyenKayit = e.detail?.adet ?? 0
+  const yuva = document.getElementById('kuyruk-rozet-yuvasi')
+  if (yuva) yuva.innerHTML = kuyrukRozetiHTML(bekleyenKayit)
+  const panel = document.getElementById('kuyruk-panel')
+  if (panel) window.kuyrukPaneliAc()   // panel açıksa içeriğini de tazele
+})
+
+window.kuyrukPaneliAc = async () => {
+  const ogeler = (await kuyrukListesi())
+    .sort((a, b) => String(a.olusturma).localeCompare(String(b.olusturma)))
+  const takilanlar = takiliOgeler(ogeler)
+
+  const satirlar = ogeler.length === 0
+    ? '<div class="kuyruk-bos">✓ Bekleyen kayıt yok.</div>'
+    : ogeler.map(o => {
+        const z = new Date(o.olusturma)
+        const takili = takilanlar.some(t => t.id === o.id)
+        return `
+          <div class="kuyruk-satir ${takili ? 'takili' : ''}">
+            <div>
+              <b>${o.etiket || 'Veri girişi'}</b>
+              <span class="kuyruk-kucuk">${z.toLocaleDateString('tr-TR')} ${z.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+              <div class="kuyruk-kucuk">
+                ${o.foto ? '📷 fotoğraf · ' : ''}${o.gubreler?.length ? o.gubreler.length + ' gübre satırı · ' : ''}${o.veri?.ilac_gubre_notu ? 'not var' : 'not yok'}
+              </div>
+              ${o.deneme ? `<div class="kuyruk-hata">${o.deneme} deneme — ${o.sonHata || 'bilinmeyen hata'}</div>` : ''}
+              ${takili ? '<div class="kuyruk-hata">⚠ Uzun süredir gönderilemiyor</div>' : ''}
+            </div>
+            <button class="kuyruk-sil" onclick="kuyrukOgeSil('${o.id}')" title="Bu kaydı sil">🗑</button>
+          </div>
+        `
+      }).join('')
+
+  document.getElementById('kuyruk-panel')?.remove()
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="kuyruk-panel" class="kuyruk-panel-katman" onclick="if(event.target===this) this.remove()">
+      <div class="kuyruk-panel">
+        <div class="kuyruk-panel-ust">
+          <b>📴 Gönderilmeyi bekleyen kayıtlar (${ogeler.length})</b>
+          <button class="kurulum-mini" onclick="document.getElementById('kuyruk-panel').remove()">✕</button>
+        </div>
+        <div class="kuyruk-ipucu">
+          Bunlar cihazınızda saklanıyor. Sinyal gelince otomatik gönderilir;
+          uygulamayı kapatsanız da kaybolmaz.
+        </div>
+        ${takilanlar.length ? `<div class="kuyruk-uyari">⚠ ${takilanlar.length} kayıt uzun süredir gönderilemiyor. Bağlantınızı kontrol edin.</div>` : ''}
+        ${satirlar}
+        <div class="kuyruk-panel-alt">
+          <button class="kurulum-btn kurulum-btn-kucuk" onclick="kuyrukSimdiGonder(this)"
+                  ${(!navigator.onLine || ogeler.length === 0) ? 'disabled' : ''}>
+            ${navigator.onLine ? '⬆ Şimdi gönder' : 'Çevrimdışı'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `)
+}
+
+window.kuyrukSimdiGonder = async (btn) => {
+  btn.disabled = true
+  btn.textContent = 'Gönderiliyor...'
+  const ozet = await senkronBaslat({ hepsiniDene: true })
+  btn.textContent = ozet.kesildi ? 'Bağlantı kesildi' : '⬆ Şimdi gönder'
+  btn.disabled = false
+  window.kuyrukPaneliAc()
+}
+
+window.kuyrukOgeSil = async (id) => {
+  if (!confirm('Bu bekleyen kayıt silinsin mi?\nCihazdan kalıcı olarak kaldırılır, sisteme gönderilmez.')) return
+  await kuyruktanSil(id)
+  window.kuyrukPaneliAc()
+}
+
 // ── KURULUM SİHİRBAZI (yalnızca yönetici) ──
 window.kurulumAc = async () => {
   if (aktifRol() !== 'yonetici') return
@@ -882,6 +964,9 @@ window.bolgeDegistir = (bolgeId) => {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Çevrimdışı kuyruk: online/offline dinleyicileri + bekleyenleri gönder
+  offlineBaslat()
+  kuyrukSayisi().then(n => { bekleyenKayit = n })
   uygulamaBaslat()
 })
 

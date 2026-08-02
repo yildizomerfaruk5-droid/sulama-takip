@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { kuyrugaEkle, agHatasiMi } from './offline.js'
 
 export function popupHTML(hat) {
   return `
@@ -205,7 +206,7 @@ function gubreListesiOlustur() {
   })
 }
 
-export function popupEventleriEkle(hatId, turId) {
+export function popupEventleriEkle(hatId, turId, hatEtiketi = '') {
   // Gübre seçeneklerini yükle
   supabase
     .from('gubreler')
@@ -259,96 +260,95 @@ export function popupEventleriEkle(hatId, turId) {
 
   // Kaydet butonu
   document.getElementById('popup-kaydet-btn').addEventListener('click', () => {
-    popupKaydet(hatId, turId)
+    popupKaydet(hatId, turId, hatEtiketi)
   })
 }
 
-export async function popupKaydet(hatId, turId) {
-  const islem = 'gubreleme'   // Sulama zaten hat akisiyla kaydediliyor
-  const not = document.getElementById('popup-not').value
-  const mesajEl = document.getElementById('popup-mesaj')
-  const kaydetBtn = document.getElementById('popup-kaydet-btn')
-
-  mesajEl.style.color = '#7f8c8d'
-  mesajEl.textContent = 'Kaydediliyor...'
-  kaydetBtn.disabled = true
-
-  let fotografUrl = null
-
-  // Fotoğraf varsa yükle (kameradan veya galeriden)
-  if (secilenFoto) {
-    const dosya = secilenFoto
-    const dosyaAdi = `${hatId}_${Date.now()}.${dosya.name.split('.').pop() || 'jpg'}`
-
-    const { error } = await supabase.storage
-      .from('fotograflar')
-      .upload(dosyaAdi, dosya)
-
-    if (error) {
-      mesajEl.style.color = '#ff4757'
-      mesajEl.textContent = 'Fotoğraf yüklenemedi: ' + error.message
-      kaydetBtn.disabled = false
-      return
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('fotograflar')
-      .getPublicUrl(dosyaAdi)
-
-    fotografUrl = urlData.publicUrl
-  }
-
-  // Kaydı ekle
-  const { data: kayit, error } = await supabase
-    .from('sulama_kayitlari')
-    .insert({
-      hat_id: hatId,
-      tur_id: turId || null,
-      baslangic_zamani: new Date().toISOString(),
-      islem_turu: islem,
-      ilac_gubre_notu: not || null,
-      fotograf_url: fotografUrl,
-      durum: 'tamamlandi'
-    })
-    .select('id')
-    .single()
-
-  if (error) {
-    mesajEl.style.color = '#ff4757'
-    mesajEl.textContent = 'Hata: ' + error.message
-    kaydetBtn.disabled = false
-    return
-  }
-
-  // Gübre uygulamalarını kaydet
-  const gubreSatirlari = [...document.querySelectorAll('#gubre-listesi .gubre-satir')]
+// Formdaki seçili gübre satırlarını okur (kayit_id gönderim anında eklenir)
+function secilenGubreler() {
+  return [...document.querySelectorAll('#gubre-listesi .gubre-satir')]
     .filter(satir => satir.querySelector('.gubre-sec')?.checked)
     .map(satir => ({
-      kayit_id: kayit.id,
       gubre_id: satir.dataset.gubre,
       miktar: parseFloat(satir.querySelector('.gubre-miktar').value),
       birim: satir.querySelector('.gubre-birim').value,
       olcek: satir.querySelector('.gubre-olcek').value
     }))
     .filter(g => g.miktar > 0)
+}
 
-  if (gubreSatirlari.length > 0) {
-    const { error: gubreHata } = await supabase
-      .from('gubre_uygulamalari')
-      .insert(gubreSatirlari)
+export async function popupKaydet(hatId, turId, hatEtiketi = '') {
+  const mesajEl = document.getElementById('popup-mesaj')
+  const kaydetBtn = document.getElementById('popup-kaydet-btn')
 
-    if (gubreHata) {
+  // sure_dakika BİLEREK yok: bu bir "veri girişi" kaydıdır, hat
+  // tamamlaması değil. Kuyruk da bu ayrımı zorunlu tutar.
+  const veri = {
+    hat_id: hatId,
+    tur_id: turId || null,
+    baslangic_zamani: new Date().toISOString(),
+    islem_turu: 'gubreleme',   // Sulama zaten hat akisiyla kaydediliyor
+    ilac_gubre_notu: document.getElementById('popup-not').value || null,
+    durum: 'tamamlandi'
+  }
+  const gubreler = secilenGubreler()
+  const foto = secilenFoto
+
+  mesajEl.style.color = '#7f8c8d'
+  mesajEl.textContent = 'Kaydediliyor...'
+  kaydetBtn.disabled = true
+
+  const kuyruklaVeKapat = async (sebep) => {
+    try {
+      await kuyrugaEkle({ veri, foto, gubreler, etiket: hatEtiketi })
+      mesajEl.style.color = '#f9ca24'
+      mesajEl.innerHTML = `📴 ${sebep}<br>Kayıt cihazda saklandı, sinyal gelince gönderilecek.`
+      setTimeout(() => document.getElementById('popup-overlay')?.remove(), 1800)
+    } catch (e) {
       mesajEl.style.color = '#ff4757'
-      mesajEl.textContent = 'Gübre kaydı hatası: ' + gubreHata.message
+      mesajEl.textContent = 'Kuyruğa alınamadı: ' + e.message
       kaydetBtn.disabled = false
-      return
     }
   }
 
-  mesajEl.style.color = '#26de81'
-  mesajEl.textContent = '✓ Kaydedildi!'
+  // Çevrimdışıysa hiç denemeden kuyruğa al
+  if (!navigator.onLine) return kuyruklaVeKapat('Çevrimdışısınız.')
 
-  setTimeout(() => {
-    document.getElementById('popup-overlay')?.remove()
-  }, 800)
+  try {
+    let fotografUrl = null
+
+    if (foto) {
+      const dosyaAdi = `${hatId}_${Date.now()}.${foto.name.split('.').pop() || 'jpg'}`
+      const { error } = await supabase.storage.from('fotograflar').upload(dosyaAdi, foto)
+      if (error) throw new Error(error.message)
+      fotografUrl = supabase.storage.from('fotograflar').getPublicUrl(dosyaAdi).data.publicUrl
+    }
+
+    const { data: kayit, error } = await supabase
+      .from('sulama_kayitlari')
+      .insert({ ...veri, fotograf_url: fotografUrl })
+      .select('id')
+      .single()
+    if (error) throw new Error(error.message)
+
+    if (gubreler.length > 0) {
+      const { error: gubreHata } = await supabase
+        .from('gubre_uygulamalari')
+        .insert(gubreler.map(g => ({ ...g, kayit_id: kayit.id })))
+      if (gubreHata) throw new Error(gubreHata.message)
+    }
+
+    mesajEl.style.color = '#26de81'
+    mesajEl.textContent = '✓ Kaydedildi!'
+    setTimeout(() => document.getElementById('popup-overlay')?.remove(), 800)
+
+  } catch (hata) {
+    // Ağ koptuysa veri kaybolmasın — kuyruğa al.
+    // Sunucu reddettiyse (doğrulama, yetki) kuyruklamak anlamsız,
+    // sonsuza dek tekrar denenirdi; kullanıcıya söylenir.
+    if (agHatasiMi(hata)) return kuyruklaVeKapat('Bağlantı kesildi.')
+    mesajEl.style.color = '#ff4757'
+    mesajEl.textContent = 'Hata: ' + hata.message
+    kaydetBtn.disabled = false
+  }
 }

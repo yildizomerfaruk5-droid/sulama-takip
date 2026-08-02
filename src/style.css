@@ -862,3 +862,97 @@ body {
   color: #7f8c8d;
   line-height: 1.5;
 }
+
+/* Cevrimdisi kuyruk: rozet ve panel */
+.kuyruk-rozet {
+  background: #2b2416;
+  border: 1px solid #b7791f;
+  border-radius: 6px;
+  color: #f5cd79;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kuyruk-rozet:hover { filter: brightness(1.15); }
+.kuyruk-rozet.cevrimdisi {
+  background: #341c1c;
+  border-color: #c0392b;
+  color: #ff7675;
+}
+
+.kuyruk-panel-katman {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+  padding: 16px;
+}
+.kuyruk-panel {
+  background: #1a2634;
+  border: 1px solid #2c3e50;
+  border-radius: 12px;
+  padding: 18px;
+  width: 100%;
+  max-width: 460px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.kuyruk-panel-ust {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #5dade2;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.kuyruk-ipucu {
+  font-size: 12px;
+  color: #7f8c8d;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.kuyruk-uyari {
+  background: #341c1c;
+  border: 1px solid #c0392b;
+  border-radius: 6px;
+  color: #ff7675;
+  font-size: 12.5px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+.kuyruk-bos { color: #26de81; font-size: 13px; padding: 10px 0; }
+.kuyruk-satir {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #0f1923;
+  border: 1px solid #2c3e50;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #e0e0e0;
+}
+.kuyruk-satir.takili { border-color: #c0392b; }
+.kuyruk-kucuk { font-size: 11px; color: #7f8c8d; margin-left: 6px; }
+.kuyruk-satir .kuyruk-kucuk { display: inline; }
+.kuyruk-hata { font-size: 11px; color: #f5cd79; margin-top: 3px; }
+.kuyruk-sil {
+  background: transparent;
+  border: 1px solid #2c3e50;
+  border-radius: 5px;
+  color: #7f8c8d;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.kuyruk-sil:hover { background: #4a1f1a; border-color: #c0392b; color: #ff7675; }
+.kuyruk-panel-alt { display: flex; gap: 8px; margin-top: 12px; }
