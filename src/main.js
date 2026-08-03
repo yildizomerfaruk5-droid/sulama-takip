@@ -10,7 +10,7 @@ import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
 import { popupHTML, popupEventleriEkle } from './popup.js'
 import { girisYap, cikisYap, mevcutKullanici, loginHTML, girisGecmisiniGetir, girisGecmisiHTML } from './auth.js'
-import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHaritayaCiz } from './harita.js'
+import { haritaOlustur, hatlariHaritayaCiz, koordinatSeciciBaslat, vanalariHaritayaCiz, haritaDurumGuncelle } from './harita.js'
 import { bolgeleriGetir, profilGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
@@ -35,12 +35,6 @@ let bekleyenKayit = 0   // çevrimdışı kuyrukta bekleyen veri girişi sayıs�
 // Geçiş dönemi: profili olmayan giriş yapmış kullanıcı yönetici sayılır
 function aktifRol() {
   return profil?.rol || 'yonetici'
-}
-
-// Realtime/sayaç tetiklemeleri kurulum ekranını silmesin
-function guvenliRender() {
-  if (kurulumAcik) return
-  render()
 }
 
 // ── RENDER ──
@@ -89,11 +83,13 @@ async function render() {
   app.innerHTML = `
     <div class="container">
       ${header()}
-      ${duruBanner(durum, turBilgisi)}
-      ${calisanPanel}
-      ${butonlar(durum)}
+      <div id="durum-bolumu">
+        ${duruBanner(durum, turBilgisi)}
+        ${calisanPanel}
+        ${butonlar(durum)}
+      </div>
       <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
-      <div class="zona-grid">
+      <div class="zona-grid" id="zona-grid">
         ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
       </div>
 
@@ -659,6 +655,61 @@ async function turTamamla() {
 }
 
 
+/*
+ * Durum değişiminde HAFİF güncelleme.
+ *
+ * Tam render() haritayı yıkıp yeniden kuruyordu: ölçümde 149 ms'nin
+ * 138 ms'i 3570 Leaflet nesnesinin yeniden yaratılmasıydı (geometri
+ * yalnızca 5 ms). Burada DOM'un yalnızca durum bağımlı bölümleri ve
+ * haritanın renkleri güncellenir; harita, fıskiye geometrisi ve
+ * katmanlar yerinde kalır.
+ */
+async function durumGuncelle() {
+  if (kurulumAcik || !aktifBolge) return
+
+  const kap = document.getElementById('durum-bolumu')
+  const izgara = document.getElementById('zona-grid')
+  // Harita henüz kurulmadıysa hafif yol anlamsız — tam çizime düş
+  if (!kap || !izgara) return render()
+
+  const [zonalar, durum] = await Promise.all([
+    zonaVeHatlariGetir(aktifBolge.id),
+    sistemDurumuGetir(aktifBolge.id)
+  ])
+  sistemDurumu = durum
+
+  let tamamlananlar = []
+  if (durum?.aktif_tur_id) {
+    const { data } = await supabase
+      .from('sulama_kayitlari')
+      .select('hat_id')
+      .eq('tur_id', durum.aktif_tur_id)
+      .eq('durum', 'tamamlandi')
+      .not('sure_dakika', 'is', null)
+    tamamlananlar = (data || []).map(k => k.hat_id)
+  }
+
+  let turBilgisi = null
+  if (durum?.aktif_tur_id) {
+    const { data: tur } = await supabase
+      .from('turlar').select('*, zonalar(ad)').eq('id', durum.aktif_tur_id).single()
+    turBilgisi = tur
+  }
+
+  kap.innerHTML = `
+    ${duruBanner(durum, turBilgisi)}
+    ${await calisanHatPaneliHTML(durum)}
+    ${butonlar(durum)}
+  `
+  izgara.innerHTML = zonalar.map(z => zonaKart(z, durum, tamamlananlar)).join('')
+
+  // Harita: yalnızca renk/durum — geometri ve katmanlar korunur
+  haritaDurumGuncelle(durum, tamamlananlar)
+
+  if (durum?.sistem_acik) sayaciBaslat()
+  else if (sayacInterval) clearInterval(sayacInterval)
+}
+
 // ── REALTIME ──
 supabase
   .channel('sistem_durumu')
@@ -666,12 +717,17 @@ supabase
     event: '*',
     schema: 'public',
     table: 'sistem_durumu'
-  }, () => guvenliRender())
+  }, () => { if (!kurulumAcik) durumGuncelle() })
   .subscribe()
 
 // ── SAYAÇ ──
+// Aktif hattın süresi sayaç boyunca sabittir; her tikte sorgulanmaz.
+// Hat değişince/sayaç yeniden başlayınca sıfırlanır.
+let aktifHatSuresiDk = null
+
 function sayaciBaslat() {
   if (sayacInterval) clearInterval(sayacInterval)
+  aktifHatSuresiDk = null
 
   sayacInterval = setInterval(async () => {
     if (!sistemDurumu?.sistem_acik || !sistemDurumu?.aktif_hat_id) {
@@ -719,18 +775,25 @@ function sayaciBaslat() {
     // NOT: Otomatik hat geçişi SUNUCUDA yapılır (pg_cron > hat_gecis_kontrol).
     // Tarayıcı geçiş tetiklemez — iki motorun çakışıp mükerrer kayıt üretmesini
     // önlemek için. Süre dolduğunda yalnızca ekranı tazeleyip sunucuyu bekleriz.
-    const { data: aktifHat } = await supabase
-      .from('hatlar')
-      .select('varsayilan_sure_dk')
-      .eq('id', sistemDurumu.aktif_hat_id)
-      .single()
+    //
+    // Hattın süresi saniyede bir SORGULANMAZ: sabit bir değerdir, sayaç
+    // başlarken bir kez okunur. Eskiden her tik bir Supabase isteği
+    // atıyordu (saatte 3600 istek) — telefonda pil ve radyo maliyeti.
+    if (aktifHatSuresiDk == null) {
+      const { data: aktifHat } = await supabase
+        .from('hatlar')
+        .select('varsayilan_sure_dk')
+        .eq('id', sistemDurumu.aktif_hat_id)
+        .single()
+      aktifHatSuresiDk = aktifHat?.varsayilan_sure_dk ?? null
+    }
 
-    if (aktifHat) {
-      const limitMs = aktifHat.varsayilan_sure_dk * 60 * 1000
+    if (aktifHatSuresiDk != null) {
+      const limitMs = aktifHatSuresiDk * 60 * 1000
       // Sunucunun geçişi yapmasına fırsat ver, sonra ekranı tazele
       if (gecenMs >= limitMs + 90000) {
         clearInterval(sayacInterval)
-        guvenliRender()
+        if (!kurulumAcik) durumGuncelle()
       }
     }
   }, 1000)

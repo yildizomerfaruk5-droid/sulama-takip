@@ -51,6 +51,10 @@ export async function haritaOlustur(elementId, bolge = null) {
     harita.remove()
     harita = null
   }
+  // Katman önbellekleri haritayla birlikte geçersizleşir
+  fiskiyeKayitlari = []
+  vanaIsaretKayitlari = []
+  hatSeritKayitlari = []
 
   saha = {
     ...(await sahaVerisiniGetir(bolge)),
@@ -227,6 +231,7 @@ export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = [], bolge
 
   if (!hatlar || hatlar.length === 0) return
 
+  hatSeritKayitlari = []
   hatlar.forEach(hat => {
     const renk = hatRengiGetir(hat, sistemDurumu, tamamlananlar)
     if (!hat.baslangic_lat || !hat.bitis_lat) return
@@ -235,7 +240,7 @@ export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = [], bolge
     const bitis = [hat.bitis_lat, hat.bitis_lng]
     const serit = seritOlustur(baslangic, bitis, 0.00006)
 
-    L.polygon(serit, {
+    const sekil = L.polygon(serit, {
       color: renk,
       fillColor: renk,
       fillOpacity: renk === '#3d3d3d' ? 0.3 : 0.5,
@@ -248,6 +253,8 @@ export async function hatlariHaritayaCiz(sistemDurumu, tamamlananlar = [], bolge
       Fıskiye: ${hat.fiskiye_sayisi || '-'}
     `)
     .addTo(katmanlar.hatSeritleri)
+
+    hatSeritKayitlari.push({ hat, sekil })
   })
 }
 
@@ -410,10 +417,12 @@ function vanaHatDurumu(hatId, durum, tamamlananlar) {
   return 'pasif'
 }
 
-function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaCiz, hatNo) {
+// toplayici verilirse oluşturulan katmanlar oraya da eklenir; durum
+// değişiminde o vananın katmanlarına tek tek erişebilmek için gerekli.
+function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaCiz, hatNo, toplayici = null) {
   // Sulanan alani boya (aktif/tamam/siradaki hatlarda)
   if (kapsamaCiz) {
-    L.circle([lat, lng], {
+    const daire = L.circle([lat, lng], {
       renderer,
       radius: saha.kapsama,
       stroke: false,
@@ -421,9 +430,10 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaC
       fillOpacity: 0.22,
       interactive: false
     }).addTo(katmanlar.fiskiyeler)
+    toplayici?.push(daire)
   }
 
-  L.circleMarker([lat, lng], {
+  const nokta = L.circleMarker([lat, lng], {
     renderer,
     radius: 3,
     stroke: false,
@@ -432,6 +442,7 @@ function fiskiyeNokta(lat, lng, parsel, vanaNo, siraNo, renderer, renk, kapsamaC
   })
   .bindPopup(`${hatNo ? `<b>Hat-${hatNo}</b> • ` : ''}${parsel} parselinin ${vanaNo}. vanasının ${siraNo}. fıskiyesi`)
   .addTo(katmanlar.fiskiyeler)
+  toplayici?.push(nokta)
 }
 
 // 'alan_doldur' kurali: vanadan boru dogrultusunda ilerleyen siralarla
@@ -540,26 +551,110 @@ export function fiskiyeKonumlari(v, vanalar = [], sv = saha) {
   return noktalar
 }
 
+/*
+ * GEOMETRİ ve DURUM ayrımı (performans).
+ *
+ * Ölçüm (1785 fıskiye, masaüstü): geometri hesabı 5 ms, buna karşılık
+ * Leaflet katmanlarını yaratmak 138 ms. Yani pahalı olan hesap değil,
+ * 3570 nesnenin yeniden kurulması. Bu yüzden katmanlar BİR KEZ kurulur,
+ * sonraki durum değişikliklerinde yalnızca renk güncellenir (13 ms).
+ *
+ * Vananın rengi dışında bir şeyi değişiyorsa (aktif pane'e taşınma,
+ * kapsama dairelerinin girip çıkması) yalnızca O VANANIN katmanları
+ * yeniden çizilir — geometri yine önbellekten gelir, tekrar hesaplanmaz.
+ */
+let fiskiyeKayitlari = []   // { vana, noktalar, durum, katmanlar[] }
+let vanaIsaretKayitlari = []// { grup, isaret }
+let hatSeritKayitlari = []  // { hat, sekil }
+let normalRenderer = null
+let aktifRenderer = null
+
+// Vananın o anki durumundan renk + çizim biçimi
+function vanaGorunumu(v, durum, tamamlananlar) {
+  const hatDurumu = vanaHatDurumu(v.hat_id, durum, tamamlananlar)
+  let renk = HAT_RENK[hatDurumu]
+  if (hatDurumu === 'pasif' && v.hatlar?.hat_no) renk = hatRengi(v.hatlar.hat_no)
+  return { hatDurumu, renk, kapsamaCiz: hatDurumu !== 'pasif' }
+}
+
+// Tek bir vananın fıskiye katmanlarını çizer (önbellekteki konumlardan).
+// Hem ilk kurulum hem durum değişimi bu yolu kullanır — çıktı birebir aynı.
+function vanaKatmanlariniCiz(kayit, gorunum) {
+  const { vana } = kayit
+  const renderer = gorunum.hatDurumu === 'aktif' ? aktifRenderer : normalRenderer
+  kayit.katmanlar = []
+
+  kayit.noktalar.forEach(n => {
+    fiskiyeNokta(n.lat, n.lng, n.parsel, vana.isaretci_no, n.sira,
+      renderer, gorunum.renk, gorunum.kapsamaCiz, vana.hatlar?.hat_no, kayit.katmanlar)
+  })
+  kayit.durum = gorunum.hatDurumu
+}
+
+function vanaKatmanlariniKaldir(kayit) {
+  kayit.katmanlar.forEach(k => katmanlar.fiskiyeler.removeLayer(k))
+  kayit.katmanlar = []
+}
+
 function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
-  const normalRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
-  const aktifRenderer = L.canvas({ padding: 0.5, tolerance: 10, pane: 'aktifSulama' })
+  normalRenderer = L.canvas({ padding: 0.5, tolerance: 10 })
+  aktifRenderer = L.canvas({ padding: 0.5, tolerance: 10, pane: 'aktifSulama' })
+  fiskiyeKayitlari = []
 
   vanalar.forEach(v => {
     if (!v.ekim_yonu_derece || !v.fiskiye_sayisi) return
 
-    const hatDurumu = vanaHatDurumu(v.hat_id, durum, tamamlananlar)
-    let renk = HAT_RENK[hatDurumu]
-    if (hatDurumu === 'pasif' && v.hatlar?.hat_no) {
-      renk = hatRengi(v.hatlar.hat_no)
-    }
-    const renderer = hatDurumu === 'aktif' ? aktifRenderer : normalRenderer
-    const kapsamaCiz = hatDurumu !== 'pasif'
-
-    fiskiyeKonumlari(v, vanalar, saha).forEach(n => {
-      fiskiyeNokta(n.lat, n.lng, n.parsel, v.isaretci_no, n.sira,
-        renderer, renk, kapsamaCiz, v.hatlar?.hat_no)
-    })
+    // Geometri yalnızca burada hesaplanır; sonra önbellekte tutulur
+    const kayit = { vana: v, noktalar: fiskiyeKonumlari(v, vanalar, saha), durum: null, katmanlar: [] }
+    vanaKatmanlariniCiz(kayit, vanaGorunumu(v, durum, tamamlananlar))
+    fiskiyeKayitlari.push(kayit)
   })
+}
+
+/*
+ * Canlı durum değişiminde çağrılır: geometri yeniden hesaplanmaz,
+ * Leaflet katmanları yeniden kurulmaz. Yalnızca gerçekten değişen
+ * vanalara dokunulur.
+ */
+export function haritaDurumGuncelle(durum, tamamlananlar = []) {
+  if (!harita) return { guncellenen: 0, yenidenCizilen: 0 }
+  const ozet = { guncellenen: 0, yenidenCizilen: 0 }
+
+  // ── Fıskiyeler ──
+  fiskiyeKayitlari.forEach(kayit => {
+    const yeni = vanaGorunumu(kayit.vana, durum, tamamlananlar)
+    if (yeni.hatDurumu === kayit.durum) return
+
+    const eskiAktif = kayit.durum === 'aktif'
+    const eskiPasif = kayit.durum === 'pasif'
+    // Pane (yanıp sönme) veya kapsama daireleri değişiyorsa katman
+    // yeniden kurulmalı; sadece renk değişiyorsa setStyle yeter.
+    if (eskiAktif !== (yeni.hatDurumu === 'aktif') ||
+        eskiPasif !== (yeni.hatDurumu === 'pasif')) {
+      vanaKatmanlariniKaldir(kayit)
+      vanaKatmanlariniCiz(kayit, yeni)
+      ozet.yenidenCizilen++
+    } else {
+      kayit.katmanlar.forEach(k => k.setStyle && k.setStyle({ fillColor: yeni.renk }))
+      kayit.durum = yeni.hatDurumu
+      ozet.guncellenen++
+    }
+  })
+
+  // ── Vana işaretleri (su geçişi var/yok) ──
+  vanaIsaretKayitlari.forEach(({ grup, isaret }) => {
+    const akiyor = grup.some(x => vanaHatDurumu(x.hat_id, durum, tamamlananlar) === 'aktif')
+    isaret.setIcon(vanaIkonu(akiyor))
+    isaret.setPopupContent(vanaPopupIcerigi(grup, akiyor))
+  })
+
+  // ── Hat şeritleri ──
+  hatSeritKayitlari.forEach(({ hat, sekil }) => {
+    const renk = hatRengiGetir(hat, durum, tamamlananlar)
+    sekil.setStyle({ color: renk, fillColor: renk, fillOpacity: renk === '#3d3d3d' ? 0.3 : 0.5 })
+  })
+
+  return ozet
 }
 
 export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, tamamlananlar = []) {
@@ -595,13 +690,45 @@ export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, t
     gruplar[anahtar].push(v)
   })
 
+  vanaIsaretKayitlari = []
   Object.values(gruplar).forEach(grup => {
     const v = grup[0]
     const akiyor = grup.some(x => vanaHatDurumu(x.hat_id, sistemDurumu, tamamlananlar) === 'aktif')
-    const renk = akiyor ? '#26de81' : '#e74c3c'
-    const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
 
-    const satirlar = grup.map(x => `
+    const isaret = L.marker([v.lat, v.lng], { icon: vanaIkonu(akiyor) })
+      .bindPopup(vanaPopupIcerigi(grup, akiyor))
+      .bindTooltip(String(v.isaretci_no), {
+        permanent: true, direction: 'top', offset: [0, -7],
+        className: 'vana-etiket'
+      })
+      .addTo(katmanlar.vanalar)
+
+    vanaIsaretKayitlari.push({ grup, isaret })
+  })
+}
+
+// Vana işareti ve popup'ı — durum değişiminde yeniden üretilir,
+// böylece ilk çizimle güncelleme birebir aynı çıktıyı verir.
+function vanaIkonu(akiyor) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width: 11px; height: 11px;
+      background: ${akiyor ? '#26de81' : '#e74c3c'};
+      border: 2px solid #0f1923;
+      transform: rotate(45deg);
+      box-sizing: border-box;
+    "></div>`,
+    iconSize: [11, 11],
+    iconAnchor: [5, 5]
+  })
+}
+
+function vanaPopupIcerigi(grup, akiyor) {
+  const v = grup[0]
+  const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
+
+  const satirlar = grup.map(x => `
       ${x.yon ? `<b>${x.yon === 'alt' ? 'Alt' : 'Üst'}</b> (${x.parsel || '-'}):` : `Parsel: ${x.parsel || '-'}`}
       ${x.fiskiye_sayisi} fıskiye —
       ${x.hatlar?.hat_no
@@ -609,32 +736,12 @@ export async function vanalariHaritayaCiz(bolgeId = null, sistemDurumu = null, t
         : '<span style="color:#7f8c8d">hat atanmadı</span>'}
     `).join('<br>')
 
-    L.marker([v.lat, v.lng], {
-      icon: L.divIcon({
-        className: '',
-        html: `<div style="
-          width: 11px; height: 11px;
-          background: ${renk};
-          border: 2px solid #0f1923;
-          transform: rotate(45deg);
-          box-sizing: border-box;
-        "></div>`,
-        iconSize: [11, 11],
-        iconAnchor: [5, 5]
-      })
-    })
-    .bindPopup(`
+  return `
       <b>Vana ${v.isaretci_no}</b> ${grup.some(x => x.hat_id) ? '' : '(hat atanmadı)'}<br>
       Su geçişi: <b style="color:${akiyor ? '#26de81' : '#e74c3c'}">${akiyor ? 'VAR ✅' : 'YOK ⛔'}</b><br>
       ${satirlar}<br>
       Toplam: <b>${toplamF} fıskiye</b><br>
       Ekim yönü: ${v.ekim_yonu_derece}°<br>
       ${grup.some(x => x.notlar) ? '📝 ' + grup.filter(x => x.notlar).map(x => x.notlar).join(' | ') : ''}
-    `)
-    .bindTooltip(String(v.isaretci_no), {
-      permanent: true, direction: 'top', offset: [0, -7],
-      className: 'vana-etiket'
-    })
-    .addTo(katmanlar.vanalar)
-  })
+    `
 }
