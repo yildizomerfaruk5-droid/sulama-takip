@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.manco.sulamatakip",
+    "sha256_cert_fingerprints": ["43:8C:FC:DD:63:C3:5D:66:BA:70:D1:8A:FA:05:4E:6F:6D:8A:02:FE:43:BE:2D:93:9C:DE:FF:2D:45:67:92:AC"]
+  }
+}]
