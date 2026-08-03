@@ -569,6 +569,14 @@ let hatSeritKayitlari = []  // { hat, sekil }
 let normalRenderer = null
 let aktifRenderer = null
 
+// Harita nesnesi var ama container'ı hâlâ belgede mi?
+// Yalnızca `harita` değişkenine bakmak yetmez: #app.innerHTML değişince
+// nesne truthy kalır, container kopar.
+function haritaCanli() {
+  const kapsayici = harita?.getContainer?.()
+  return !!(kapsayici && kapsayici.isConnected)
+}
+
 // Vananın o anki durumundan renk + çizim biçimi
 function vanaGorunumu(v, durum, tamamlananlar) {
   const hatDurumu = vanaHatDurumu(v.hat_id, durum, tamamlananlar)
@@ -617,7 +625,12 @@ function fiskiyeleriCiz(vanalar, durum, tamamlananlar) {
  * vanalara dokunulur.
  */
 export function haritaDurumGuncelle(durum, tamamlananlar = []) {
-  if (!harita) return { guncellenen: 0, yenidenCizilen: 0 }
+  // Harita DOM'dan koptuysa sessizce çık. Bu durum kurulum sihirbazı
+  // veya viewer #app'i değiştirdiğinde, ayrıca render()'ın innerHTML
+  // yazmasıyla haritaOlustur()'un tamamlanması arasındaki kısa yarış
+  // penceresinde oluşur. Leaflet kopuk container'da hata vermiyor
+  // (ölçüldü) ama yapılan iş boşa gider: bu katmanlar birazdan atılacak.
+  if (!haritaCanli()) return { guncellenen: 0, yenidenCizilen: 0, atlandi: true }
   const ozet = { guncellenen: 0, yenidenCizilen: 0 }
 
   // ── Fıskiyeler ──
