@@ -355,7 +355,7 @@ window.hatTikla = async (hatId) => {
     .single()
 
   document.body.insertAdjacentHTML('beforeend', popupHTML(hat))
-  popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id, `Hat-${hat.hat_no}`)
+  popupEventleriEkle(hatId, sistemDurumu?.aktif_tur_id, `Hat-${hat.hat_no}`, aktifRol())
 }
 
 window.sistemiBaslat = async () => {
