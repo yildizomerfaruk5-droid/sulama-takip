@@ -19,6 +19,9 @@ dist-ssr
 
 # Ozel dosyalar (public repoya girmesin)
 sulama_takip_rapor_v5.txt
+sulama_takip_rapor_v6.pdf
+sulama_takip_rapor_v7.pdf
+sulama_takip_teknik_rapor_v8.pdf
 sulama kontrol sistemi sohbeti.txt
 
 # Editor directories and files
@@ -31,3 +34,9 @@ sulama kontrol sistemi sohbeti.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Yerel kurulum (uretilen gizli dosyalar)
+docker/.env
+docker/kong.uretilmis.yml
+docker/yedekler/
+.env.production

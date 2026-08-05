@@ -1,0 +1,221 @@
+# ============================================================
+# SULAMA TAKIP — YEREL (INTERNETSIZ) KURULUM
+#
+# Supabase'in resmi self-hosted bilesenleri + uygulamanin statik
+# build'ini servis eden nginx. Tek komutla ayaga kalkar:
+#
+#     docker compose up -d
+#
+# Tum trafik TEK PORTTAN (80) gecer:
+#   /            -> nginx (uygulama)
+#   /auth/v1/*   -> kong -> gotrue
+#   /rest/v1/*   -> kong -> postgrest
+#   /realtime/v1 -> kong -> realtime
+#   /storage/v1  -> kong -> storage
+#
+# Boylece uygulamanin VITE_SUPABASE_URL'i kendi adresidir
+# (orn. http://sulama.local) — CORS ve ikinci port derdi yok.
+#
+# Mimari: tum imajlar amd64 + arm64 yayinlar (Pi 5 ve mini PC).
+# ============================================================
+
+name: sulama
+
+services:
+  # ── Veritabani ────────────────────────────────────────────
+  # pg_cron shared_preload_libraries'de hazir gelir; otomatik hat
+  # gecisi (hat_gecis_kontrol) buna baglidir.
+  db:
+    image: supabase/postgres:15.8.1.060
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_SIFRE:?POSTGRES_SIFRE tanimlanmali}
+      POSTGRES_DB: postgres
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET tanimlanmali}
+      JWT_EXP: 3600
+    volumes:
+      - db-veri:/var/lib/postgresql/data
+      # Servis rollerinin (authenticator, supabase_auth_admin, ...)
+      # sifrelerini ayarlar. Yalnizca ilk olusturmada calisir.
+      # TEK DOSYA olarak baglanir: klasor baglanirsa imajin kendi
+      # init-scripts/migrations icerigi ezilir. 'zz-' oneki imajin
+      # kendi betikleri BITTIKTEN sonra calismasini garanti eder
+      # (roller o betiklerde olusuyor).
+      - ./db-init/01-roller.sh:/docker-entrypoint-initdb.d/zz-sulama-roller.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Disari acilmaz; yalnizca ic ag. Yedek/bakim icin:
+    #   docker compose exec db psql -U postgres
+
+  # ── Kimlik dogrulama (GoTrue) ─────────────────────────────
+  auth:
+    image: supabase/gotrue:v2.170.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${GENEL_ADRES:?GENEL_ADRES tanimlanmali}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_SIFRE}@db:5432/postgres?search_path=auth
+      GOTRUE_SITE_URL: ${GENEL_ADRES}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "true"          # hesaplari yalnizca yonetici acar
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"      # internetsiz: e-posta dogrulamasi yok
+      GOTRUE_SMTP_ADMIN_EMAIL: yonetici@sulama.local
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_LOG_LEVEL: warn
+
+  # ── REST API (PostgREST) ──────────────────────────────────
+  rest:
+    image: postgrest/postgrest:v12.2.8
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_SIFRE}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
+    command: ["postgrest"]
+
+  # ── Canli guncelleme (Realtime) ───────────────────────────
+  # Aktif hat degisince telefonlarin aninda gormesini saglar.
+  realtime:
+    image: supabase/realtime:v2.34.31
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_SIFRE}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: ${REALTIME_ENC_KEY:?REALTIME_ENC_KEY tanimlanmali}
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:?REALTIME_SECRET_KEY_BASE tanimlanmali}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      TENANT_MAX_EVENTS_PER_SECOND: "100"
+
+  # ── Dosya deposu (fotograflar) ────────────────────────────
+  storage:
+    image: supabase/storage-api:v1.19.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY:?ANON_KEY tanimlanmali}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY:?SERVICE_ROLE_KEY tanimlanmali}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_SIFRE}@db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800               # 50 MB (saha fotograflari)
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "false"    # imgproxy gerekmez, Pi'de hafif kalir
+    volumes:
+      - storage-veri:/var/lib/storage
+
+  # ── API gecidi (Kong) ─────────────────────────────────────
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    volumes:
+      # kur.sh, kong.yml sablonundaki ${ANON_KEY}/${SERVICE_ROLE_KEY}
+      # yer tutucularini gercek anahtarlarla doldurup bunu uretir.
+      - ./kong.uretilmis.yml:/home/kong/kong.yml:ro
+
+  # ── Uygulama + tek giris noktasi (nginx) ──────────────────
+  uygulama:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - kong
+    ports:
+      - "${WEB_PORT:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../dist:/usr/share/nginx/html:ro
+
+  # ── Studio (istege bagli veritabani paneli) ───────────────
+  # Yalnizca gerektiginde:  docker compose --profile studio up -d
+  meta:
+    image: supabase/postgres-meta:v0.87.1
+    restart: unless-stopped
+    profiles: ["studio"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_SIFRE}
+
+  studio:
+    image: supabase/studio:20250224-d10db0f
+    restart: unless-stopped
+    profiles: ["studio"]
+    depends_on:
+      - meta
+    ports:
+      - "${STUDIO_PORT:-3000}:3000"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_SIFRE}
+      DEFAULT_ORGANIZATION_NAME: ${ISLETME_ADI:-Isletme}
+      DEFAULT_PROJECT_NAME: Sulama Takip
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${GENEL_ADRES}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+
+volumes:
+  db-veri:
+  storage-veri:

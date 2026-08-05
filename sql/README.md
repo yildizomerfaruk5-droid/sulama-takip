@@ -1,9 +1,25 @@
 # Veritabanı SQL Dosyaları
 
 Supabase SQL Editor'da çalıştırılmış migration ve düzeltmelerin arşivi.
-**Hepsi zaten çalıştırıldı** — yeni bir kurulumda sırayla çalıştırılır:
+**Hepsi zaten çalıştırıldı** — yeni bir kurulumda sırayla çalıştırılır.
 
-## Kurulum sırası (yeni ortam için)
+> ## ⚠️ Sıfırdan kurulum yapıyorsanız
+>
+> **Aşağıdaki liste tek başına yetmez.** `zonalar`, `hatlar`, `turlar`,
+> `sulama_kayitlari`, `sistem_durumu` ve `giris_gecmisi` tabloları projenin
+> başında Supabase panelinden elle oluşturulmuştu ve hiçbir migration'da
+> tanımları yoktu. Temiz bir veritabanında bu liste **ilk dosyada** patlar
+> (`relation "zonalar" does not exist`).
+>
+> Önce şunu çalıştırın: **`supabase_migration_00_cekirdek_sema.sql`**
+>
+> Ayrıca aşağıdaki dosyaların bir kısmı şema ile Kayseri **verisini** bir
+> arada taşır. Yeni bir işletme kuruyorsanız bunların `_sema` eşlerini
+> kullanın ve sıralamayı `docker/migrasyon_sirasi.txt` üzerinden izleyin.
+> Ayrıntılı tablo: **`docs/YEREL_KURULUM.md` > "Şema/veri ayrımı"**
+
+## Kurulum sırası (mevcut bulut ortamının tarihçesi)
+0. `supabase_migration_00_cekirdek_sema.sql` — çekirdek tablolar (sonradan yazıldı)
 1. `supabase_migration_bolgeler.sql`   — çok bölgeli yapı + roller
 2. `supabase_migration_vanalar.sql`    — vana envanteri (işaretçi 1-35)
 3. `supabase_guncelleme_ekim_yonu.sql` — ekim doğrultuları (326/60)

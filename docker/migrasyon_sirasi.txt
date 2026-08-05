@@ -1,0 +1,61 @@
+# ============================================================
+# YEREL KURULUM — MIGRATION SIRASI
+#
+# kur.sh ve guncelle.sh bu listeyi satir satir okur.
+# Yollar depo kokune goredir. '#' ile baslayan satirlar ve bos
+# satirlar atlanir.
+#
+# ILKE: Bu listede YALNIZCA sema vardir. Hicbir isletmeye ait veri
+#       (bolge, zona, hat, vana, parsel, gubre tanimi) yuklenmez.
+#       Yeni isletme kendi verisini KURULUM SIHIRBAZINDAN girer.
+#
+# Sema+veri karisik olan uc dosyanin "_sema" esleri kullanilir.
+# Ayrintili tablo: docs/YEREL_KURULUM.md > "Sema/veri ayrimi"
+# ============================================================
+
+# ── 1. Cekirdek tablolar ──
+# (zonalar, hatlar, turlar, sulama_kayitlari, sistem_durumu, giris_gecmisi)
+sql/supabase_migration_00_cekirdek_sema.sql
+
+# ── 2. Bolgeler + rol sistemi ──
+# sema esi: Kayseri bolgesi olusturulmaz
+sql/supabase_migration_bolgeler_sema.sql
+
+# ── 3. Vanalar ──
+# sema esi: 35 Kayseri vanasi yuklenmez, tekil indeks dogrudan bolge bazli
+sql/supabase_migration_vanalar_sema.sql
+
+# ── 4. Gubre modulu ──
+# sema esi: 6 Kayseri gubre tanimi yuklenmez (sahada eklenir)
+sql/supabase_migration_gubreler_sema.sql
+
+# ── 5. Loglar ve ziyaretci kayitlari (sema-only, orijinaller kullanilir) ──
+supabase_migration_loglar.sql
+supabase_migration_ziyaretci.sql
+
+# ── 6. RLS guvenlik politikalari ──
+# Sira kritik: kendinden onceki tum tablolar var olmali
+supabase_migration_rls_guvenlik.sql
+
+# ── 7. Storage silme yetkisi ──
+supabase_storage_silme.sql
+
+# ── 8. Sunucu tarafli otomatik hat gecisi (pg_cron) ──
+sql/supabase_migration_sunucu_gecis.sql
+
+# ── 9. Kurulum sihirbazi tablolari ──
+# parseller, boru_hatlari, saha_noktalari, vana_parselleri
+# + vanalar.parsel_id / cizim_kurali + bolgeler fiskiye ayarlari
+sql/supabase_migration_kurulum_tablolari.sql
+
+# ── 10. Cok bolgelilik: vana tekilligi bolge bazli ──
+# vanalar_sema zaten dogru indeksi kurar; bu dosya eski indeksi
+# temizler ve idempotenttir, guvenlik icin listede tutuluyor
+sql/supabase_duzeltme_vana_tekil_bolgeye_gore.sql
+
+# ── 11. Cevrimdisi kuyruk (istemci_id idempotency anahtari) ──
+sql/supabase_migration_offline_kuyruk.sql
+
+# ── 12. Izleyici kimligi + ziyaret IP'si ──
+sql/supabase_migration_izleyiciler.sql
+sql/supabase_migration_ziyaretci_ip.sql
