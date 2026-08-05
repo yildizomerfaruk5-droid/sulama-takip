@@ -93,7 +93,7 @@ function cihazOzeti(ua) {
 export async function ziyaretcileriGetir(limit = 20) {
   const { data, error } = await supabase
     .from('ziyaretci_loglari')
-    .select('*')
+    .select('*, izleyiciler(ad)')
     .order('olusturma_zamani', { ascending: false })
     .limit(limit)
 
@@ -121,7 +121,9 @@ export function ziyaretciHTML(kayitlar) {
       margin-bottom: 5px;
       font-size: 12.5px;
     ">
-      <span style="color:#e0e0e0;">👁 İzleme ekranı açıldı</span>
+      <span style="color:#e0e0e0;">
+        👁 ${z.izleyiciler?.ad ? `${z.izleyiciler.ad} — ` : ''}İzleme ekranı açıldı
+      </span>
       <span style="color:#7f8c8d;">
         ${new Date(z.olusturma_zamani).toLocaleString('tr-TR')} • ${cihazOzeti(z.cihaz)}
       </span>

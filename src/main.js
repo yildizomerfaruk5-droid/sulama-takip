@@ -15,6 +15,9 @@ import { bolgeleriGetir, profilGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
 import { logKaydet, loglariGetir, logHTML, ziyaretcileriGetir, ziyaretciHTML } from './log.js'
+import {
+  izleyicileriGetir, izleyiciEkle, izleyiciAdiDegistir, izleyiciAktiflik
+} from './izleyici.js'
 import { yedekIndir } from './yedek.js'
 import { kurulumEkraniAc } from './kurulum.js'
 import {
@@ -132,6 +135,7 @@ async function render() {
 
       <details class="bolum">
         <summary>👁 Ziyaretçiler (misafir görüntülemeleri)</summary>
+        <div id="izleyici-tanimlari"></div>
         <div id="ziyaretci-liste">Yükleniyor...</div>
       </details>
 
@@ -176,6 +180,8 @@ async function render() {
     if (el) el.innerHTML = ziyaretciHTML(kayitlar)
   })
 
+  izleyiciTanimlariniCiz()
+
   // Sayacı başlat
   if (sistemDurumu?.sistem_acik) {
     sayaciBaslat()
@@ -184,7 +190,184 @@ async function render() {
   }
 }
 
+// ── İZLEYİCİ TANIMLARI ──
+// Misafir izleme ekranını kimin açtığını ayırt etmek için isim listesi.
+// SİLME YOK, yalnızca pasifleştirme: geçmiş loglardaki isim referansı
+// kopmasın. Yazma RLS'i yonetici/denetleyici ile sınırlı; işçi ve anon
+// bu bölümü hiç görmez.
+const IZLEYICI_ALAN_STILI = `
+  padding: 7px 6px;
+  background: #0f1923;
+  border: 1px solid #2c3e50;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 13px;
+  box-sizing: border-box;
+`
 
+function izleyiciYazabilir() {
+  return aktifRol() === 'yonetici' || aktifRol() === 'denetleyici'
+}
+
+async function izleyiciTanimlariniCiz() {
+  const kap = document.getElementById('izleyici-tanimlari')
+  if (!kap) return
+
+  if (!izleyiciYazabilir()) {
+    kap.innerHTML = ''
+    return
+  }
+
+  const izleyiciler = await izleyicileriGetir({ hepsi: true })
+
+  const satirlar = izleyiciler.length === 0
+    ? '<div style="color:#7f8c8d; font-size:12px; padding:4px 0;">Henüz izleyici tanımlanmadı.</div>'
+    : izleyiciler.map(i => `
+        <div class="izleyici-satir" data-id="${i.id}" style="
+          display:flex; gap:6px; align-items:center; padding:5px 0;
+          border-bottom:1px solid #16222e;
+        ">
+          <span style="flex:1; min-width:0; color:${i.aktif ? '#bdc3c7' : '#5b6b7a'}; font-size:13px;">
+            ${i.ad}${i.aktif ? '' : ' <span style="font-size:11px;">(pasif)</span>'}
+          </span>
+          <button type="button" class="izleyici-adlandir" data-id="${i.id}" data-ad="${i.ad}" style="
+            padding:5px 9px; background:transparent; border:1px solid #2c3e50;
+            border-radius:6px; color:#7f8c8d; font-size:12px; cursor:pointer; flex-shrink:0;
+          ">✎</button>
+          <button type="button" class="izleyici-aktiflik" data-id="${i.id}" data-aktif="${i.aktif}" style="
+            padding:5px 9px; background:transparent; border:1px solid #2c3e50;
+            border-radius:6px; color:${i.aktif ? '#7f8c8d' : '#26de81'}; font-size:12px;
+            cursor:pointer; flex-shrink:0; min-width:74px;
+          ">${i.aktif ? 'Pasifleştir' : 'Aktif et'}</button>
+        </div>
+      `).join('')
+
+  kap.innerHTML = `
+    <div style="
+      background:#0c141d; border:1px solid #2c3e50; border-radius:6px;
+      padding:10px 12px; margin-bottom:12px;
+    ">
+      <div style="color:#bdc3c7; font-size:12.5px; margin-bottom:8px;">
+        İzleyici tanımları
+        <span style="color:#7f8c8d; font-size:11px;">
+          — izleme ekranını açan kişi kendini bu listeden seçer
+        </span>
+      </div>
+
+      ${satirlar}
+
+      <div style="padding:8px 2px 2px;">
+        <a id="yeni-izleyici-ac" href="#" style="
+          color:#5dade2; font-size:12.5px; text-decoration:none; cursor:pointer;
+        ">➕ Yeni izleyici ekle</a>
+
+        <div id="yeni-izleyici-form" style="display:none; gap:6px; align-items:center; padding:6px 0 2px;">
+          <input id="yeni-izleyici-ad" type="text" placeholder="İsim" maxlength="60"
+            style="flex:1; min-width:0; ${IZLEYICI_ALAN_STILI}">
+          <button id="yeni-izleyici-kaydet" type="button" style="
+            padding:8px 12px; background:#26de81; border:none; border-radius:6px;
+            color:#000; font-size:13px; font-weight:bold; cursor:pointer; flex-shrink:0;
+          ">Kaydet</button>
+          <button id="yeni-izleyici-iptal" type="button" style="
+            padding:7px 10px; background:transparent; border:1px solid #2c3e50;
+            border-radius:6px; color:#7f8c8d; font-size:13px; cursor:pointer; flex-shrink:0;
+          ">✕</button>
+        </div>
+
+        <div id="yeni-izleyici-mesaj" style="font-size:11.5px; margin-top:4px; min-height:14px;"></div>
+      </div>
+    </div>
+  `
+
+  izleyiciOlaylari()
+}
+
+function izleyiciOlaylari() {
+  const kap = document.getElementById('izleyici-tanimlari')
+  if (!kap) return
+
+  const mesajEl = document.getElementById('yeni-izleyici-mesaj')
+  const mesaj = (metin, renk = '#7f8c8d') => {
+    if (!mesajEl) return
+    mesajEl.style.color = renk
+    mesajEl.innerHTML = metin
+  }
+
+  const ac = document.getElementById('yeni-izleyici-ac')
+  const form = document.getElementById('yeni-izleyici-form')
+  const adAlani = document.getElementById('yeni-izleyici-ad')
+
+  ac.addEventListener('click', (e) => {
+    e.preventDefault()
+    form.style.display = 'flex'
+    ac.style.display = 'none'
+    adAlani.focus()
+  })
+
+  document.getElementById('yeni-izleyici-iptal').addEventListener('click', () => {
+    form.style.display = 'none'
+    ac.style.display = 'inline'
+    adAlani.value = ''
+    mesaj('')
+  })
+
+  adAlani.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); kaydet() }
+  })
+  document.getElementById('yeni-izleyici-kaydet').addEventListener('click', kaydet)
+
+  async function kaydet() {
+    const btn = document.getElementById('yeni-izleyici-kaydet')
+    btn.disabled = true
+    mesaj('Kaydediliyor...')
+
+    const sonuc = await izleyiciEkle(adAlani.value)
+    btn.disabled = false
+
+    if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+
+    if (sonuc.durum === 'zaten_var') {
+      return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, '#f9ca24')
+    }
+
+    // Pasif kayıt: kopyasını açmak yerine tekrar aktif etmeyi öner
+    if (sonuc.durum === 'pasif_var') {
+      mesaj(`"${sonuc.izleyici.ad}" daha önce tanımlanmış ama pasif. ` +
+        `<a href="#" id="izleyici-aktif-et" style="color:#26de81">Tekrar aktif et</a>`, '#f9ca24')
+      document.getElementById('izleyici-aktif-et').addEventListener('click', async (e) => {
+        e.preventDefault()
+        const g = await izleyiciAktiflik(sonuc.izleyici.id, true)
+        if (g.durum === 'hata') return mesaj(g.mesaj, '#ff4757')
+        await izleyiciTanimlariniCiz()
+      })
+      return
+    }
+
+    await izleyiciTanimlariniCiz()
+  }
+
+  kap.querySelectorAll('.izleyici-adlandir').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const yeniAd = prompt('Yeni isim:', btn.dataset.ad)
+      if (yeniAd === null) return
+      const sonuc = await izleyiciAdiDegistir(btn.dataset.id, yeniAd)
+      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+      if (sonuc.durum === 'zaten_var') {
+        return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, '#f9ca24')
+      }
+      await izleyiciTanimlariniCiz()
+    })
+  })
+
+  kap.querySelectorAll('.izleyici-aktiflik').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const suAnAktif = btn.dataset.aktif === 'true'
+      const sonuc = await izleyiciAktiflik(btn.dataset.id, !suAnAktif)
+      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+      await izleyiciTanimlariniCiz()
+    })
+  })
+}
 
 // ── BÖLGE SEÇİCİ ──
 // Kurulumu tamamlanmamış bölgeler listede KALIR ama 🚧 ile işaretlenir.

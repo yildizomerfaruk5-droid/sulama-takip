@@ -5,6 +5,9 @@ import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita
 import { bolgeleriGetir } from './bolge.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
+import {
+  izleyicileriGetir, izleyiciKimligi, izleyiciKimligiKaydet, izleyiciKimligiSil
+} from './izleyici.js'
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -24,14 +27,98 @@ async function ziyaretKaydet(bolgeId) {
   try {
     if (sessionStorage.getItem('ziyaret_loglandi')) return
     sessionStorage.setItem('ziyaret_loglandi', '1')
+    // Kimlik henüz seçilmemişse null gider — eski (anonim) davranış
     await supabase.from('ziyaretci_loglari').insert({
       bolge_id: bolgeId || null,
+      izleyici_id: izleyiciKimligi()?.id || null,
       cihaz: navigator.userAgent.substring(0, 250)
     })
   } catch (e) {
     console.error('Ziyaret kaydedilemedi:', e)
   }
 }
+
+/*
+ * "Sen kimsin?" secicisi.
+ *
+ * Sayfa icerigini ENGELLEMEZ: harita ve listeler normal yuklenir,
+ * secici ustte kucuk bir serit olarak durur. Kimse sikismasin diye
+ * "Bilmiyorum / Diğer" secenegi vardir — o da kaydedilir ve bir daha
+ * sorulmaz, yalnizca izleyici_id null kalir.
+ */
+function kimlikSeriti(izleyiciler) {
+  const kimlik = izleyiciKimligi()
+
+  if (kimlik) {
+    return `
+      <div id="izleyici-serit" style="
+        display:flex; justify-content:flex-end; align-items:center; gap:8px;
+        font-size:11.5px; color:#7f8c8d; padding:2px 2px 10px;
+      ">
+        <span>Ben: <strong style="color:#bdc3c7; font-weight:600;">${kimlik.ad}</strong></span>
+        <a href="#" id="izleyici-degistir" style="color:#5dade2; text-decoration:none;">değiştir</a>
+      </div>
+    `
+  }
+
+  const secenekler = izleyiciler.map(i => `
+    <button type="button" class="izleyici-sec" data-id="${i.id}" data-ad="${i.ad}" style="
+      padding:7px 12px; background:#0f1923; border:1px solid #2c3e50;
+      border-radius:6px; color:#e0e0e0; font-size:13px; cursor:pointer;
+    ">${i.ad}</button>
+  `).join('')
+
+  return `
+    <div id="izleyici-serit" style="
+      background:#16222e; border:1px solid #2c3e50; border-radius:8px;
+      padding:10px 12px; margin-bottom:14px;
+    ">
+      <div style="color:#bdc3c7; font-size:12.5px; margin-bottom:8px;">
+        👋 Sen kimsin? (kayıtlarda görünsün diye — bir kez sorulur)
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        ${secenekler}
+        <button type="button" class="izleyici-sec" data-id="" data-ad="Bilmiyorum" style="
+          padding:7px 12px; background:transparent; border:1px dashed #2c3e50;
+          border-radius:6px; color:#7f8c8d; font-size:13px; cursor:pointer;
+        ">Bilmiyorum / Diğer</button>
+      </div>
+    </div>
+  `
+}
+
+function kimlikOlaylari(bolgeId) {
+  const serit = document.getElementById('izleyici-serit')
+  if (!serit) return
+
+  serit.querySelectorAll('.izleyici-sec').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      izleyiciKimligiKaydet(btn.dataset.id || null, btn.dataset.ad)
+      // Bu oturumun ziyareti zaten kaydedildi; isim bir sonraki açılıştan
+      // itibaren görünür (ziyaretci_loglari'nda update politikası yok —
+      // kayıt yalnızca eklenebilir).
+      await kimlikSeritiniTazele(bolgeId)
+    })
+  })
+
+  const degistir = document.getElementById('izleyici-degistir')
+  if (degistir) {
+    degistir.addEventListener('click', async (e) => {
+      e.preventDefault()
+      izleyiciKimligiSil()
+      await kimlikSeritiniTazele(bolgeId)
+    })
+  }
+}
+
+async function kimlikSeritiniTazele(bolgeId) {
+  const serit = document.getElementById('izleyici-serit')
+  if (!serit) return
+  const izleyiciler = await izleyicileriGetir()
+  serit.outerHTML = kimlikSeriti(izleyiciler)
+  kimlikOlaylari(bolgeId)
+}
+
 
 export async function viewerRender() {
   const app = document.querySelector('#app')
@@ -40,9 +127,10 @@ export async function viewerRender() {
   const bolge = await viewerBolgeBelirle()
   ziyaretKaydet(bolge?.id)
 
-  const [zonalar, durum] = await Promise.all([
+  const [zonalar, durum, izleyiciler] = await Promise.all([
     zonaVeHatlariGetir(bolge?.id),
-    sistemDurumuGetir(bolge?.id)
+    sistemDurumuGetir(bolge?.id),
+    izleyicileriGetir()
   ])
 
   sistemDurumu = durum
@@ -94,6 +182,8 @@ export async function viewerRender() {
         </div>
       </div>
 
+      ${kimlikSeriti(izleyiciler)}
+
       <div class="durum-banner">
         <span class="label">Sistem:</span>
         <span class="value" style="color: ${acik ? '#26de81' : '#ff4757'}">
@@ -135,6 +225,8 @@ export async function viewerRender() {
       </div>
     </div>
   `
+
+  kimlikOlaylari(bolge?.id)
 
   gecmisKayitlariGetir(bolge?.id).then(kayitlar => {
     const el = document.getElementById('gecmis-liste')
