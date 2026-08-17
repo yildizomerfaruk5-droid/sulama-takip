@@ -23,15 +23,53 @@ async function viewerBolgeBelirle() {
   return viewerBolge
 }
 
+const IP_SERVISI = 'https://api.ipify.org?format=json'
+const IP_ZAMAN_ASIMI_MS = 2500
+
+/*
+ * Cihazin genel IP adresini sorar.
+ *
+ * Bu bilgi ZORUNLU DEGILDIR: servise erisilemezse (çevrimdışı, engelli,
+ * yavaş) sessizce null döner. Ziyaret kaydının kendisi her hâlükârda
+ * atılmalı — IP alınamaması log kaybına yol açmamalı. Bu yüzden hem
+ * zaman aşımı hem de try/catch var.
+ *
+ * Konum bilgisi ISTENMEZ: navigator.geolocation'a dokunulmaz, izin
+ * penceresi çıkmaz.
+ */
+async function ipAdresiGetir() {
+  try {
+    if (!navigator.onLine) return null
+
+    const iptal = new AbortController()
+    const sayac = setTimeout(() => iptal.abort(), IP_ZAMAN_ASIMI_MS)
+    try {
+      const cevap = await fetch(IP_SERVISI, { signal: iptal.signal, cache: 'no-store' })
+      if (!cevap.ok) return null
+      const veri = await cevap.json()
+      const ip = typeof veri?.ip === 'string' ? veri.ip.trim() : ''
+      return ip ? ip.substring(0, 45) : null   // IPv6 en fazla 45 karakter
+    } finally {
+      clearTimeout(sayac)
+    }
+  } catch {
+    return null   // servis yok / engelli / zaman aşımı — ziyaret kaydı yine atılır
+  }
+}
+
 async function ziyaretKaydet(bolgeId) {
   try {
     if (sessionStorage.getItem('ziyaret_loglandi')) return
     sessionStorage.setItem('ziyaret_loglandi', '1')
+
+    const ip = await ipAdresiGetir()
+
     // Kimlik henüz seçilmemişse null gider — eski (anonim) davranış
     await supabase.from('ziyaretci_loglari').insert({
       bolge_id: bolgeId || null,
       izleyici_id: izleyiciKimligi()?.id || null,
-      cihaz: navigator.userAgent.substring(0, 250)
+      cihaz: navigator.userAgent.substring(0, 250),
+      ip
     })
   } catch (e) {
     console.error('Ziyaret kaydedilemedi:', e)

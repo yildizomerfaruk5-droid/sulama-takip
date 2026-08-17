@@ -47,6 +47,7 @@ function atlanir(url) {
   if (!url.protocol.startsWith('http')) return true      // eklenti vb.
   if (url.hostname.includes('supabase.co')) return true  // canli veri + storage
   if (url.hostname.includes('google.com')) return true   // uydu tile'lari
+  if (url.hostname.includes('ipify.org')) return true    // IP her acilista taze sorulmali
   return false
 }
 

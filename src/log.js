@@ -125,7 +125,7 @@ export function ziyaretciHTML(kayitlar) {
         👁 ${z.izleyiciler?.ad ? `${z.izleyiciler.ad} — ` : ''}İzleme ekranı açıldı
       </span>
       <span style="color:#7f8c8d;">
-        ${new Date(z.olusturma_zamani).toLocaleString('tr-TR')} • ${cihazOzeti(z.cihaz)}
+        ${new Date(z.olusturma_zamani).toLocaleString('tr-TR')} • ${cihazOzeti(z.cihaz)}${z.ip ? ` • ${z.ip}` : ''}
       </span>
     </div>
   `).join('')
