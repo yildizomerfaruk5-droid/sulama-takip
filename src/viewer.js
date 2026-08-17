@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi } from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
@@ -198,20 +198,20 @@ export async function viewerRender() {
   const turNo = turBilgisi?.tur_no || '-'
   const zonaAd = turBilgisi?.zonalar?.ad || '-'
 
-  const calisanPanel = await calisanHatPaneliHTML(durum)
+  const calisan = await calisanHatVerisi(durum)
 
   app.innerHTML = `
     <div class="container">
       <div class="header">
         <h1>🌾 SULAMA TAKİP SİSTEMİ</h1>
-        <div style="display:flex; align-items:center; gap:16px;">
-          ${bolge ? `<div class="meta" style="color:#5dade2;">📍 ${bolge.ad}</div>` : ''}
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          ${bolge ? `<div class="meta" style="color:var(--accent);">📍 ${bolge.ad}</div>` : ''}
           <a href="/" onclick="localStorage.removeItem('goruntuleme_modu')" style="
-            color: #7f8c8d;
+            color: var(--metin-soluk);
             font-size: 11px;
             text-decoration: none;
-            border: 1px solid #2c3e50;
-            border-radius: 6px;
+            border: 1px solid var(--kenar);
+            border-radius: var(--r-kucuk);
             padding: 4px 10px;
           ">🔑 Yönetici</a>
           <div class="meta">${new Date().toLocaleDateString('tr-TR', {
@@ -222,38 +222,49 @@ export async function viewerRender() {
 
       ${kimlikSeriti(izleyiciler)}
 
-      <div class="durum-banner">
-        <span class="label">Sistem:</span>
-        <span class="value" style="color: ${acik ? '#26de81' : '#ff4757'}">
-          ${acik ? '● AKTİF' : '● KAPALI'}
-        </span>
-        ${acik ? `
-          <span class="label">Aktif Tur:</span>
-          <span class="value">${turNo}. Su</span>
-          <span class="label">Zona:</span>
-          <span class="value">${zonaAd}</span>
-        ` : ''}
+      <!-- Yonetici panosuyla ayni gorsel dil; eylem butonlari ve
+           kurulum karti YOK (izleme ekrani salt goruntuleme) -->
+      ${viewerMetrikKartlari(durum, turBilgisi, calisan)}
+
+      <div class="pano-ana">
+        <div class="pano-kart">
+          <div id="harita" style="height:420px; border-radius:var(--r-kucuk); border:1px solid var(--kenar);"></div>
+        </div>
+
+        <div class="pano-kart">
+          <div class="hat-listeleri">
+            ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
+          </div>
+        </div>
       </div>
 
-      ${calisanPanel}
-
-      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
-
-      <div class="zona-grid">
-        ${zonalar.map(zona => viewerZonaKart(zona, durum, tamamlananlar)).join('')}
+      <div class="alt-kartlar">
+        <div class="ozellik-kart">
+          <div class="pano-kart-baslik">Geçmiş &amp; Kayıtlar</div>
+          <div class="ozellik-baglantilari">
+            <button class="ozellik-btn" onclick="viewerBolumAc('bolum-gecmis')">📋 Geçmiş Kayıtlar</button>
+          </div>
+        </div>
+        <div class="ozellik-kart">
+          <div class="pano-kart-baslik">Veri Analizi &amp; Galeri</div>
+          <div class="ozellik-baglantilari">
+            <button class="ozellik-btn" onclick="viewerBolumAc('bolum-istatistik')">📊 İstatistikler</button>
+            <button class="ozellik-btn" onclick="viewerBolumAc('bolum-galeri')">📸 Foto Galerisi</button>
+          </div>
+        </div>
       </div>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-gecmis">
         <summary>📋 Geçmiş Kayıtlar</summary>
         <div id="gecmis-liste">Yükleniyor...</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-istatistik">
         <summary>📊 İstatistikler</summary>
         <div id="istatistik-bolum">${istatistikHTML()}</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-galeri">
         <summary>📸 Foto Galerisi (hat ve su sırasına göre)</summary>
         <div id="galeri-liste">Yükleniyor...</div>
       </details>
@@ -291,16 +302,55 @@ export async function viewerRender() {
   else if (sayacInterval) clearInterval(sayacInterval)
 }
 
+// Yonetici panosuyla ayni metrik kartlari — salt goruntuleme.
+// panel-sayac / panel-kalan id'leri korunur: viewerSayacBaslat()
+// bunlari her saniye gunceller, sayac mantigina dokunulmadi.
+function viewerMetrikKartlari(durum, turBilgisi, calisan) {
+  const acik = durum?.sistem_acik
+  const kart = (ikon, etiket, deger, alt = '', sinif = '') => `
+    <div class="metrik-kart">
+      <div class="metrik-ikon">${ikon}</div>
+      <div class="metrik-govde">
+        <div class="metrik-etiket">${etiket}</div>
+        <div class="metrik-deger ${sinif}">${deger}</div>
+        ${alt ? `<div class="metrik-alt">${alt}</div>` : ''}
+      </div>
+    </div>
+  `
+
+  return `
+    <div class="metrik-grid">
+      ${kart('🟢', 'Sistem Durumu', acik ? 'AKTİF' : 'KAPALI',
+             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` : 'Sulama yapılmıyor',
+             acik ? 'acik' : 'kapali')}
+      ${kart('💧', 'Çalışan Tur', turBilgisi?.tur_no ? `${turBilgisi.tur_no}. Su` : '—',
+             calisan?.vanaNolar ? `Vanalar: ${calisan.vanaNolar}` : '')}
+      ${kart('📍', 'Aktif Zona', turBilgisi?.zonalar?.ad || calisan?.hat?.zonalar?.ad || '—',
+             calisan?.alanDekar ? `~${calisan.alanDekar} dekar • ${calisan.fiskiyeToplam} fıskiye` : '')}
+      ${kart('⏱', 'Kalan Süre',
+             `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
+             `Geçen: <span id="panel-sayac">--:--:--</span>` +
+             (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
+    </div>
+  `
+}
+
+window.viewerBolumAc = (id) => {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.open = true
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 function viewerZonaKart(zona, durum, tamamlananlar) {
   const hatlarHTML = zona.hatlar.length === 0
-    ? '<div style="color:#7f8c8d; font-size:13px; padding:8px;">Henüz hat eklenmedi.</div>'
+    ? '<div style="color:var(--metin-soluk); font-size:13px; padding:8px;">Henüz hat eklenmedi.</div>'
     : zona.hatlar.map(hat => viewerHatSatir(hat, durum, tamamlananlar)).join('')
 
   return `
-    <div class="zona-card">
-      <h2>${zona.ad}</h2>
-      <div style="font-size:12px; color:#7f8c8d; margin-bottom:10px;">${zona.aciklama || ''}</div>
-      <div class="hat-listesi">${hatlarHTML}</div>
+    <div class="hat-listesi-kutu">
+      <div class="pano-kart-baslik">${zona.ad} hat listesi</div>
+      <div class="hat-listesi hat-listesi-kaydir">${hatlarHTML}</div>
     </div>
   `
 }

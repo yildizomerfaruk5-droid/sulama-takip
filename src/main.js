@@ -4,7 +4,7 @@
  * 2026 — Kayseri
  */
 import './style.css'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatPaneliHTML } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi } from './hatlar.js'
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
@@ -81,37 +81,50 @@ async function render() {
     turBilgisi = tur
   }
 
-  const calisanPanel = await calisanHatPaneliHTML(durum)
+  const calisan = await calisanHatVerisi(durum)
 
   app.innerHTML = `
     <div class="container">
       ${header()}
+
+      <!-- Ust serit: ozet metrikler (mevcut veriden turetilir) -->
       <div id="durum-bolumu">
-        ${duruBanner(durum, turBilgisi)}
-        ${calisanPanel}
-        ${butonlar(durum)}
-      </div>
-      <div id="harita" style="height:400px; border-radius:8px; margin-bottom:24px; border:1px solid #2c3e50;"></div>
-      <div class="zona-grid" id="zona-grid">
-        ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
+        ${metrikKartlari(durum, turBilgisi, calisan)}
       </div>
 
-      <details class="bolum">
+      <!-- Ana bolum: solda harita + eylemler, sagda hat listeleri -->
+      <div class="pano-ana">
+        <div class="pano-kart">
+          ${butonlar(durum)}
+          <div id="harita" style="height:420px; border-radius:var(--r-kucuk); border:1px solid var(--kenar);"></div>
+        </div>
+
+        <div class="pano-kart">
+          <div class="hat-listeleri" id="zona-grid">
+            ${zonalar.map(zona => zonaKart(zona, durum, tamamlananlar)).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Alt bolum: mevcut acilir bolumlere goturen eylem kartlari -->
+      ${ozellikKartlari()}
+
+      <details class="bolum" id="bolum-gecmis">
         <summary>📋 Geçmiş Kayıtlar</summary>
         <div id="gecmis-liste">Yükleniyor...</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-istatistik">
         <summary>📊 İstatistikler</summary>
         <div id="istatistik-bolum">${istatistikHTML()}</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-galeri">
         <summary>📸 Foto Galerisi (hat ve su sırasına göre)</summary>
         <div id="galeri-liste">Yükleniyor...</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-olaylar">
         <summary>📜 Olay Kayıtları</summary>
         <div style="margin-bottom:10px;">
           <button onclick="yedekAl(this)" style="
@@ -128,12 +141,12 @@ async function render() {
         <div id="olay-log-liste">Yükleniyor...</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-giris">
         <summary>🔐 Giriş Geçmişi</summary>
         <div id="giris-gecmisi-liste">Yükleniyor...</div>
       </details>
 
-      <details class="bolum">
+      <details class="bolum" id="bolum-ziyaretci">
         <summary>👁 Ziyaretçiler (misafir görüntülemeleri)</summary>
         <div id="izleyici-tanimlari"></div>
         <div id="ziyaretci-liste">Yükleniyor...</div>
@@ -446,7 +459,96 @@ function header() {
   `
 }
 
+// ── ÜST ŞERİT: ÖZET METRİK KARTLARI ──
+// Tamamen mevcut veriden türetilir, yeni sorgu yok.
+//
+// ÖNEMLİ: `panel-sayac` ve `panel-kalan` id'leri ile `data-sure`
+// özniteliği KORUNMALIDIR — sayaciBaslat() bunları her saniye günceller.
+// Sayaç mantığına dokunulmadı, yalnızca hangi elemana yazdığı değişti.
+function metrikKartlari(durum, turBilgisi, calisan) {
+  const acik = durum?.sistem_acik
+  const kart = (ikon, etiket, deger, alt = '', sinif = '') => `
+    <div class="metrik-kart">
+      <div class="metrik-ikon">${ikon}</div>
+      <div class="metrik-govde">
+        <div class="metrik-etiket">${etiket}</div>
+        <div class="metrik-deger ${sinif}">${deger}</div>
+        ${alt ? `<div class="metrik-alt">${alt}</div>` : ''}
+      </div>
+    </div>
+  `
+
+  return `
+    <div class="metrik-grid">
+      ${kart('🟢', 'Sistem Durumu',
+             acik ? 'AKTİF' : 'KAPALI',
+             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` : 'Sulama yapılmıyor',
+             acik ? 'acik' : 'kapali')}
+
+      ${kart('💧', 'Çalışan Tur',
+             turBilgisi?.tur_no ? `${turBilgisi.tur_no}. Su` : '—',
+             calisan?.vanaNolar ? `Vanalar: ${calisan.vanaNolar}` : '')}
+
+      ${kart('📍', 'Aktif Zona',
+             turBilgisi?.zonalar?.ad || calisan?.hat?.zonalar?.ad || '—',
+             calisan?.alanDekar ? `~${calisan.alanDekar} dekar • ${calisan.fiskiyeToplam} fıskiye` : '')}
+
+      ${kart('⏱', 'Kalan Süre',
+             `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
+             `Geçen: <span id="panel-sayac">--:--:--</span>` +
+             (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
+    </div>
+  `
+}
+
+// ── ALT ŞERİT: ÖZELLİK KARTLARI ──
+// Aşağıdaki mevcut <details> bölümlerini açar; içerikleri değişmedi.
+function ozellikKartlari() {
+  const yonetici = aktifRol() === 'yonetici'
+  const btn = (hedef, ikon, metin) =>
+    `<button class="ozellik-btn" onclick="bolumAc('${hedef}')">${ikon} ${metin}</button>`
+
+  return `
+    <div class="alt-kartlar">
+      <div class="ozellik-kart">
+        <div class="pano-kart-baslik">Geçmiş &amp; Kayıtlar</div>
+        <div class="ozellik-baglantilari">
+          ${btn('bolum-gecmis', '📋', 'Geçmiş Kayıtlar')}
+          ${btn('bolum-olaylar', '📜', 'Olay Kayıtları')}
+          ${btn('bolum-giris', '🔐', 'Giriş Geçmişi')}
+        </div>
+      </div>
+
+      <div class="ozellik-kart">
+        <div class="pano-kart-baslik">Veri Analizi &amp; Galeri</div>
+        <div class="ozellik-baglantilari">
+          ${btn('bolum-istatistik', '📊', 'İstatistikler')}
+          ${btn('bolum-galeri', '📸', 'Foto Galerisi')}
+        </div>
+      </div>
+
+      <div class="ozellik-kart">
+        <div class="pano-kart-baslik">Ziyaretçiler${yonetici ? ' &amp; Kurulum' : ''}</div>
+        <div class="ozellik-baglantilari">
+          ${btn('bolum-ziyaretci', '👁', 'Ziyaretçiler')}
+          ${yonetici ? `<button class="ozellik-btn" onclick="kurulumAc()">⚙️ Kurulum Sihirbazı</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `
+}
+
+// Özellik kartından ilgili <details> bölümünü açıp oraya kaydır
+window.bolumAc = (id) => {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.open = true
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 // ── DURUM BANNER ──
+// Yeni panoda metrik kartları kullanılıyor; bu fonksiyon
+// geriye dönük uyumluluk için duruyor.
 function duruBanner(durum, turBilgisi) {
   const acik = durum?.sistem_acik
   const turNo = turBilgisi?.tur_no || '-'
@@ -493,14 +595,14 @@ function butonlar(durum) {
 // ── ZONA KARTI ──
 function zonaKart(zona, durum, tamamlananlar = []) {
   const hatlarHTML = zona.hatlar.length === 0
-    ? '<div style="color:#7f8c8d; font-size:13px; padding:8px;">Henüz hat eklenmedi.</div>'
+    ? '<div style="color:var(--metin-soluk); font-size:13px; padding:8px;">Henüz hat eklenmedi.</div>'
     : zona.hatlar.map(hat => hatSatir(hat, durum, tamamlananlar)).join('')
 
+  // Panoda her zona kendi sütununda, kendi içinde kayan bir liste
   return `
-    <div class="zona-card">
-      <h2>${zona.ad}</h2>
-      <div style="font-size:12px; color:#7f8c8d; margin-bottom:10px;">${zona.aciklama || ''}</div>
-      <div class="hat-listesi">
+    <div class="hat-listesi-kutu">
+      <div class="pano-kart-baslik">${zona.ad} hat listesi</div>
+      <div class="hat-listesi hat-listesi-kaydir">
         ${hatlarHTML}
       </div>
     </div>

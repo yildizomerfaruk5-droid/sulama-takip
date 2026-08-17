@@ -69,13 +69,19 @@ export function sureyiFormatla(dakika) {
 }
 
 // Calisan hatin anlik bilgi paneli (admin + viewer ust bolumu)
-export async function calisanHatPaneliHTML(durum) {
-  if (!durum?.sistem_acik || !durum.aktif_hat_id) return ''
+/*
+ * Calisan hattin ozet verisi.
+ * Hem eski calisanHatPaneliHTML hem de yeni pano metrik kartlari
+ * bunu kullanir — ayni sorgu iki kez yazilmasin diye ayrildi.
+ * Doner: null (sistem kapali) veya { hat, vanaNolar, fiskiyeToplam, ... }
+ */
+export async function calisanHatVerisi(durum) {
+  if (!durum?.sistem_acik || !durum.aktif_hat_id) return null
 
   const [{ data: hat }, { data: vanalar }] = await Promise.all([
     supabase
       .from('hatlar')
-      .select('*, zonalar(ad)')
+      .select('id, hat_no, parsel_bilgisi, fiskiye_sayisi, varsayilan_sure_dk, zonalar(ad)')
       .eq('id', durum.aktif_hat_id)
       .maybeSingle(),
     supabase
@@ -85,7 +91,7 @@ export async function calisanHatPaneliHTML(durum) {
       .order('isaretci_no')
   ])
 
-  if (!hat) return ''
+  if (!hat) return null
 
   // Calisma araligi: baslama -> tahmini bitis
   let saatAralik = '—'
@@ -96,9 +102,21 @@ export async function calisanHatPaneliHTML(durum) {
     saatAralik = `${fmt(b)} → ${fmt(e)}`
   }
 
-  const vanaNolar = [...new Set((vanalar || []).map(v => v.isaretci_no))].join(', ')
   const fiskiyeToplam = (vanalar || []).reduce((t, v) => t + (v.fiskiye_sayisi || 0), 0)
-  const alanDekar = Math.round(fiskiyeToplam * 0.12 * 10) / 10 // fiskiye basina ~120 m2
+
+  return {
+    hat,
+    saatAralik,
+    vanaNolar: [...new Set((vanalar || []).map(v => v.isaretci_no))].join(', '),
+    fiskiyeToplam,
+    alanDekar: Math.round(fiskiyeToplam * 0.12 * 10) / 10   // fiskiye basina ~120 m2
+  }
+}
+
+export async function calisanHatPaneliHTML(durum) {
+  const v = await calisanHatVerisi(durum)
+  if (!v) return ''
+  const { hat, saatAralik, vanaNolar, fiskiyeToplam, alanDekar } = v
 
   return `
     <div class="calisan-hat-panel">
