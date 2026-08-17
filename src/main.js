@@ -19,7 +19,6 @@ import {
   izleyicileriGetir, izleyiciEkle, izleyiciAdiDegistir, izleyiciAktiflik
 } from './izleyici.js'
 import { yedekIndir } from './yedek.js'
-import { kurulumEkraniAc } from './kurulum.js'
 import {
   offlineBaslat, kuyrukSayisi, kuyrukListesi, kuyruktanSil,
   senkronBaslat, kuyrukRozetiHTML, takiliOgeler
@@ -181,7 +180,9 @@ async function render() {
     if (el) el.innerHTML = galeriHTML(kayitlar)
   })
 
-  istatistikVerileriGetir(aktifBolge.id).then(veri => istatistikCiz(veri))
+  // İstatistik AÇILIŞTA hesaplanmaz: 5000 kayda kadar veri çekip
+  // Chart.js'i yüklüyordu. Bölüm ilk kez açıldığında tetiklenir.
+  istatistikTetikleyiciKur(aktifBolge.id)
 
   loglariGetir(aktifBolge.id).then(loglar => {
     const el = document.getElementById('olay-log-liste')
@@ -201,6 +202,27 @@ async function render() {
   } else {
     if (sayacInterval) clearInterval(sayacInterval)
   }
+}
+
+/*
+ * İstatistik bölümü ilk kez açıldığında veriyi çeker ve grafikleri çizer.
+ * Bir kez çalışır; sonraki açılışlarda tekrar sorgu atılmaz.
+ * (Bölüm zaten açık geldiyse — tarayıcı <details> durumunu hatırlarsa —
+ *  hemen tetiklenir.)
+ */
+function istatistikTetikleyiciKur(bolgeId) {
+  const bolum = document.getElementById('bolum-istatistik')
+  if (!bolum) return
+
+  let yuklendi = false
+  const yukle = () => {
+    if (yuklendi) return
+    yuklendi = true
+    istatistikVerileriGetir(bolgeId).then(veri => istatistikCiz(veri))
+  }
+
+  bolum.addEventListener('toggle', () => { if (bolum.open) yukle() })
+  if (bolum.open) yukle()
 }
 
 // ── İZLEYİCİ TANIMLARI ──
@@ -1292,6 +1314,11 @@ window.kurulumAc = async () => {
   if (aktifRol() !== 'yonetici') return
   kurulumAcik = true
   if (sayacInterval) clearInterval(sayacInterval)
+
+  // Kurulum modülü 3300+ satır. Statik import'ta ana pakete giriyor ve
+  // sihirbaz hiç açılmasa bile indiriliyordu; dinamik import ile ayrı
+  // parçaya alındı — yalnızca yönetici sihirbazı açtığında iner.
+  const { kurulumEkraniAc } = await import('./kurulum.js')
 
   await kurulumEkraniAc({
     bolgeId: aktifBolge?.id,

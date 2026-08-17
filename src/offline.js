@@ -22,6 +22,7 @@
  * Yeni bağımlılık yok: ham IndexedDB.
  */
 import { supabase } from './supabase.js'
+import { fotografiKucult, kucukSurumAdi } from './foto.js'
 
 const DB_ADI = 'sulama-offline'
 const DB_SURUM = 1
@@ -165,11 +166,24 @@ async function ogeyiGonder(oge) {
   let fotografUrl = veri.fotograf_url || null
 
   if (oge.foto) {
-    const yol = `${veri.hat_id || 'kayit'}_${oge.id}.${oge.fotoUzanti}`
+    // Kuyruktaki fotoğraf ham çekildiği gibi duruyor; gönderirken küçült.
+    // (Kuyruğa girerken küçültmüyoruz: çevrimdışıyken cihazı yormayalım
+    //  ve sıkıştırma hatası kaydın kuyruğa girmesini engellemesin.)
+    const { dosya: yuklenecek, kucuk } = await fotografiKucult(oge.foto)
+    const yol = `${veri.hat_id || 'kayit'}_${oge.id}.jpg`
+
     const { error } = await supabase.storage
       .from('fotograflar')
-      .upload(yol, oge.foto, { upsert: true })
+      .upload(yol, yuklenecek, { upsert: true, contentType: 'image/jpeg' })
     if (error) throw new Error('Fotoğraf yüklenemedi: ' + error.message)
+
+    // Galeri küçük sürümü — başarısız olursa sessizce geçilir
+    if (kucuk) {
+      try {
+        await supabase.storage.from('fotograflar')
+          .upload(kucukSurumAdi(yol), kucuk, { upsert: true, contentType: 'image/jpeg' })
+      } catch { /* galeri tam boya düşer */ }
+    }
 
     fotografUrl = supabase.storage.from('fotograflar').getPublicUrl(yol).data.publicUrl
   }

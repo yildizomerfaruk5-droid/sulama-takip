@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js'
 import { kuyrugaEkle, agHatasiMi } from './offline.js'
+import { fotografiKucult, kucukSurumAdi } from './foto.js'
 
 export function popupHTML(hat) {
   return `
@@ -533,10 +534,25 @@ export async function popupKaydet(hatId, turId, hatEtiketi = '') {
     let fotografUrl = null
 
     if (foto) {
-      const dosyaAdi = `${hatId}_${Date.now()}.${foto.name.split('.').pop() || 'jpg'}`
-      const { error } = await supabase.storage.from('fotograflar').upload(dosyaAdi, foto)
+      // Yuklemeden once kucult: 3-8 MB'lik telefon fotograflari
+      // sahada yavas yukleniyordu. EXIF yonu korunur; sikistirma
+      // basarisiz olursa orijinal dosya yuklenir (kayit kaybolmaz).
+      const { dosya: yuklenecek, kucuk } = await fotografiKucult(foto)
+
+      const uzanti = 'jpg'
+      const dosyaAdi = `${hatId}_${Date.now()}.${uzanti}`
+      const { error } = await supabase.storage.from('fotograflar')
+        .upload(dosyaAdi, yuklenecek, { contentType: 'image/jpeg' })
       if (error) throw new Error(error.message)
       fotografUrl = supabase.storage.from('fotograflar').getPublicUrl(dosyaAdi).data.publicUrl
+
+      // Galeri izgarasi icin kucuk surum. Basarisiz olursa sessizce
+      // gecilir — galeri o zaman tam boy surume duser.
+      if (kucuk) {
+        await supabase.storage.from('fotograflar')
+          .upload(kucukSurumAdi(dosyaAdi), kucuk, { contentType: 'image/jpeg' })
+          .catch(() => {})
+      }
     }
 
     const { data: kayit, error } = await supabase

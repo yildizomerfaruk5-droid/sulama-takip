@@ -3,7 +3,7 @@ import { supabase } from './supabase.js'
 export async function zonaVeHatlariGetir(bolgeId = null) {
   let zonaSorgu = supabase
     .from('zonalar')
-    .select('*')
+    .select('id, ad, aciklama, sira_no, bolge_id')
     .order('sira_no')
 
   if (bolgeId) zonaSorgu = zonaSorgu.eq('bolge_id', bolgeId)
@@ -18,7 +18,7 @@ export async function zonaVeHatlariGetir(bolgeId = null) {
 
   const { data: hatlar, error: hatHata } = await supabase
     .from('hatlar')
-    .select('*')
+    .select('id, zona_id, hat_no, parsel_bilgisi, fiskiye_sayisi, varsayilan_sure_dk, sira_no, aktif')
     .in('zona_id', zonalar.map(z => z.id))
     .order('sira_no')
 
@@ -35,7 +35,7 @@ export async function zonaVeHatlariGetir(bolgeId = null) {
 }
 
 export async function sistemDurumuGetir(bolgeId = null) {
-  let sorgu = supabase.from('sistem_durumu').select('*')
+  let sorgu = supabase.from('sistem_durumu').select('id, bolge_id, aktif_hat_id, siradaki_hat_id, aktif_tur_id, aktif_zona_id, sistem_acik, hat_baslama_zamani, guncelleme_zamani')
 
   // Bölge verilmişse bölgeye göre, verilmemişse eski tek satır (id=1) düzeni
   sorgu = bolgeId ? sorgu.eq('bolge_id', bolgeId) : sorgu.eq('id', 1)

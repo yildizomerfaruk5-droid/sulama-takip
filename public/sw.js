@@ -6,13 +6,13 @@
 // Strateji:
 //   • Gezinme (HTML)      : cache-first + arka planda tazele
 //                           (cevrimdisi aninda acilir, sonraki aciliste guncellenir)
-//   • Ayni origin varlik  : cache-first (Vite dosya adlarini hash'ler, degismezler)
-//   • CDN varliklari      : cache-first (leaflet css, chart.js)
+//   • Ayni origin varlik  : stale-while-revalidate (aninda ver, arkada tazele)
+//   • CDN varliklari      : stale-while-revalidate (leaflet css)
 //   • Supabase / harita tile : ASLA onbellege alinmaz (canli veri, buyuk dosya)
 //
 // Veri girisi kuyrugu IndexedDB'de tutulur (src/offline.js), burada degil.
 
-const SURUM = 'sulama-v2'
+const SURUM = 'sulama-v3'
 
 // Cevrimdisi acilis icin gereken en kucuk kume
 const KABUK = [
@@ -88,17 +88,35 @@ self.addEventListener('fetch', (e) => {
     return
   }
 
-  // ── Varliklar (ayni origin + CDN): cache-first ──
+  // ── Varliklar (ayni origin + CDN): stale-while-revalidate ──
+  //
+  // Onbellekteki surum ANINDA verilir (bekleme yok), ayni anda arka
+  // planda ag surumu cekilip onbellek tazelenir. Boylece:
+  //   • acilis hizi cache-first kadar iyi
+  //   • guncel olmayan dosya en fazla BIR acilis boyunca kalir
+  //     (eski saf cache-first'te SURUM degismeden hic tazelenmiyordu)
   e.respondWith((async () => {
-    const kayitli = await caches.match(istek)
-    if (kayitli) return kayitli
-    try {
-      const cevap = await fetch(istek)
-      e.waitUntil(onbellegeYaz(istek, cevap.clone()))
-      return cevap
-    } catch (hata) {
-      // Cevrimdisi ve onbellekte yok: cagirana hata dussun
-      return new Response('', { status: 504, statusText: 'Çevrimdışı' })
+    const onbellek = await caches.open(SURUM)
+    const kayitli = await onbellek.match(istek)
+
+    const agdan = fetch(istek)
+      .then(cevap => {
+        // Yalnizca basarili tam cevaplar saklanir
+        if (cevap && cevap.ok && cevap.type !== 'opaque') {
+          onbellek.put(istek, cevap.clone()).catch(() => {})
+        }
+        return cevap
+      })
+      .catch(() => null)
+
+    if (kayitli) {
+      // Tazeleme arka planda sursun; cevap beklemesin
+      e.waitUntil(agdan)
+      return kayitli
     }
+
+    // Onbellekte yok: agi bekle
+    return (await agdan) ||
+      new Response('', { status: 504, statusText: 'Çevrimdışı' })
   })())
 })

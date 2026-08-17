@@ -4,7 +4,8 @@ export async function gecmisKayitlariGetir(bolgeId = null) {
   let sorgu = supabase
     .from('sulama_kayitlari')
     .select(`
-      *,
+      id, baslangic_zamani, bitis_zamani, sure_dakika, durum,
+      islem_turu, ilac_gubre_notu, fotograf_url, olusturma_zamani,
       hatlar!inner (hat_no, parsel_bilgisi, zona_id,
         zonalar!inner (ad, bolge_id)
       ),

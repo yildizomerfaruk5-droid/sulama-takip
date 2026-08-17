@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { kucukUrl } from './foto.js'
 
 // Fotografli kayitlari getir (hat + tur bilgisiyle)
 export async function galeriKayitlariGetir(bolgeId = null) {
@@ -57,8 +58,9 @@ export function galeriHTML(kayitlar) {
         return `
           <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
             <img
-              src="${k.fotograf_url}"
-              loading="lazy"
+              src="${kucukUrl(k.fotograf_url)}"
+              loading="lazy" decoding="async"
+              onerror="this.onerror=null; this.src='${k.fotograf_url}'"
               onclick="galeriBuyut('${k.fotograf_url}', '${aciklama.replace(/'/g, '&#39;')}')"
               style="
                 width: 96px; height: 96px;

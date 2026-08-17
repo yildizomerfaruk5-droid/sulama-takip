@@ -1,5 +1,19 @@
 import { supabase } from './supabase.js'
 
+/*
+ * Chart.js TEMBEL yuklenir.
+ * Eskiden index.html'de engelleyici bir <script> etiketiyle CDN'den
+ * geliyordu; her sayfa acilisinda ~200 KB indiriliyordu — istatistik
+ * bolumu hic acilmasa bile. Artik yalnizca ilk cizimde import edilir.
+ */
+let Chart = null
+async function chartYukle() {
+  if (Chart) return Chart
+  const m = await import('chart.js/auto')
+  Chart = m.default
+  return Chart
+}
+
 function hatAlanDekar(fiskiye) {
   return (fiskiye || 0) * 0.12 // fiskiye basina ~120 m2
 }
@@ -58,8 +72,9 @@ export function istatistikHTML() {
   return '<div id="ist-icerik" style="color:#7f8c8d;">Yükleniyor...</div>'
 }
 
-export function istatistikCiz(veri) {
+export async function istatistikCiz(veri) {
   ham = veri
+  try { await chartYukle() } catch (e) { console.error('Chart.js yuklenemedi:', e) }
   bolumCiz()
 }
 
@@ -228,7 +243,7 @@ function icerikCiz() {
     kart('Gübre (katı)', `${Math.round(kg * 10) / 10} kg`, '#a29bfe')
   ].join('')
 
-  if (typeof Chart === 'undefined') return
+  if (!Chart) return   // tembel yukleme henuz bitmediyse grafik cizilmez
   Chart.defaults.color = '#7f8c8d'
   Chart.defaults.borderColor = 'rgba(44, 62, 80, 0.6)'
 
