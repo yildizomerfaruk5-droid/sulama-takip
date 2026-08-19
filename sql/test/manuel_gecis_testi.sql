@@ -37,10 +37,13 @@ values ('bbbbbbbb-0000-0000-0000-000000000001',
 -- ── MANUEL SAPMA: Hat-1 calisirken Hat-4'e atlandi ──
 -- Arayuzun yaptigi ile AYNI: siradaki, HEDEFIN sira_no'suna gore.
 -- Ayrica tek seferlik sure 2 dk veriliyor (varsayilan 1 dk).
+-- DIKKAT: bolge_id ZORUNLU. hat_gecis_kontrol() gecisi
+-- "where bolge_id = s.bolge_id" ile yazar; NULL birakilirsa
+-- tamamlama kaydi acilir ama gecis SESSIZCE olmaz.
 insert into sistem_durumu
-  (id, aktif_hat_id, siradaki_hat_id, aktif_tur_id, aktif_zona_id,
+  (id, bolge_id, aktif_hat_id, siradaki_hat_id, aktif_tur_id, aktif_zona_id,
    sistem_acik, hat_baslama_zamani, aktif_hat_sure_dk)
-values (1,
+values (1, '99999999-9999-9999-9999-999999999999',
   'aaaaaaaa-0000-0000-0000-000000000004',   -- manuel secilen hat
   'aaaaaaaa-0000-0000-0000-000000000005',   -- 4'ten sonraki = 5
   'bbbbbbbb-0000-0000-0000-000000000001',
