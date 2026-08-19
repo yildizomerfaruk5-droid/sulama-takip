@@ -16,7 +16,7 @@ export function popupHTML(hat) {
       padding: 16px;
       box-sizing: border-box;
     ">
-      <div style="
+      <div class="popup-kutu" style="
         background: var(--surface);
         border: 1px solid var(--kenar);
         border-radius: 12px;

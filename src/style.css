@@ -182,6 +182,67 @@ body {
   padding-right: 4px;
 }
 
+/* ============================================================
+   INCE, TEMAYA UYGUN KAYDIRMA CUBUGU
+
+   Isletim sisteminin varsayilan acik gri cubugu (15 px) koyu
+   temayla catisiyordu. Kaydirma islevi AYNEN duruyor; yalnizca
+   gorunum degisiyor.
+
+   NEDEN @supports:
+   Chrome 121+ standart scrollbar-width/-color verildiginde eski
+   ::-webkit-scrollbar kurallarini YOK SAYAR. Ikisi birlikte
+   yazilirsa Chrome 10 px veriyor, istenen 6 px degil.
+   (Chrome 148 ile olculdu: yalniz webkit 6 px, ikisi birlikte
+    10 px, hicbiri 15 px.)
+
+   Bu yuzden standart ozellikler yalnizca ::-webkit-scrollbar
+   DESTEKLENMEYEN tarayicilara (Firefox) veriliyor:
+     Chrome / Edge / Safari -> ::-webkit-scrollbar, 6 px
+     Firefox                -> scrollbar-width: thin + renk
+   Ikisi de yoksa tarayici varsayilana duser, kaydirma calisir.
+   ============================================================ */
+@supports not selector(::-webkit-scrollbar) {
+  .hat-listesi-kaydir,
+  .kurulum-tablo-scroll,
+  .kuyruk-panel,
+  .popup-kutu {
+    scrollbar-width: thin;
+    scrollbar-color: var(--kenar) transparent;
+  }
+}
+
+.hat-listesi-kaydir::-webkit-scrollbar,
+.kurulum-tablo-scroll::-webkit-scrollbar,
+.kuyruk-panel::-webkit-scrollbar,
+.popup-kutu::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.hat-listesi-kaydir::-webkit-scrollbar-track,
+.kurulum-tablo-scroll::-webkit-scrollbar-track,
+.kuyruk-panel::-webkit-scrollbar-track,
+.popup-kutu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hat-listesi-kaydir::-webkit-scrollbar-thumb,
+.kurulum-tablo-scroll::-webkit-scrollbar-thumb,
+.kuyruk-panel::-webkit-scrollbar-thumb,
+.popup-kutu::-webkit-scrollbar-thumb {
+  background: var(--kenar);
+  border-radius: 3px;
+}
+
+.hat-listesi-kaydir::-webkit-scrollbar-thumb:hover,
+.kurulum-tablo-scroll::-webkit-scrollbar-thumb:hover,
+.kuyruk-panel::-webkit-scrollbar-thumb:hover,
+.popup-kutu::-webkit-scrollbar-thumb:hover {
+  background: var(--metin-soluk);
+}
+
+
 /* ── Alt bolum: ozellik/eylem kartlari ── */
 .alt-kartlar {
   display: grid;
