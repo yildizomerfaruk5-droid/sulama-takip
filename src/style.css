@@ -1288,3 +1288,15 @@ body {
 }
 .kuyruk-sil:hover { background: #4a1f1a; border-color: #c0392b; color: #ff7675; }
 .kuyruk-panel-alt { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Hattin toplam tamamlama sayisi rozeti ("4. kez") */
+.hat-kez {
+  font-size: 11px;
+  color: var(--metin-silik);
+  background: var(--surface-3);
+  border: 1px solid var(--kenar-soluk);
+  border-radius: 999px;
+  padding: 1px 7px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

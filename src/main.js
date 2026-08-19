@@ -4,7 +4,7 @@
  * 2026 — Kayseri
  */
 import './style.css'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi , hatTamamlamaSayilari} from './hatlar.js'
 import { supabase } from './supabase.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { viewerRender, viewerRealtimeBaslat } from './viewer.js'
@@ -24,6 +24,9 @@ import {
   senkronBaslat, kuyrukRozetiHTML, takiliOgeler
 } from './offline.js'
 
+
+// Her hattin toplam tamamlama sayisi — render sirasinda doldurulur
+let hatKezSayilari = {}
 
 let sayacInterval = null
 
@@ -79,6 +82,10 @@ async function render() {
       .single()
     turBilgisi = tur
   }
+
+  // Her hattin toplam tamamlama sayisi ("kacinci su") — tek sorgu
+  hatKezSayilari = await hatTamamlamaSayilari(
+    zonalar.flatMap(z => z.hatlar.map(h => h.id)))
 
   const calisan = await calisanHatVerisi(durum)
 
@@ -504,7 +511,9 @@ function metrikKartlari(durum, turBilgisi, calisan) {
     <div class="metrik-grid">
       ${kart('🟢', 'Sistem Durumu',
              acik ? 'AKTİF' : 'KAPALI',
-             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` : 'Sulama yapılmıyor',
+             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` +
+               (hatKezSayilari[calisan.hat.id] ? ` · ${hatKezSayilari[calisan.hat.id]}. kez` : '')
+             : 'Sulama yapılmıyor',
              acik ? 'acik' : 'kapali')}
 
       ${kart('💧', 'Çalışan Tur',
@@ -614,6 +623,12 @@ function butonlar(durum) {
       <button class="btn btn-sure" ${!acik ? 'disabled' : ''} onclick="sureDegistir()">
         ⏱ Süre Değiştir
       </button>
+      ${manuelGecisYetkisi() ? `
+        <button class="btn" ${!acik ? 'disabled' : ''} onclick="manuelGecisAc()"
+          title="Sıradaki değil, istediğiniz hatta geçin"
+          style="background:transparent; border:1px solid var(--accent); color:var(--accent);">
+          ⤳ Hat Seç
+        </button>` : ''}
     </div>
   `
 }
@@ -636,6 +651,18 @@ function zonaKart(zona, durum, tamamlananlar = []) {
   `
 }
 
+
+/*
+ * "kacinci su" rozeti — hattin BUGUNE KADARKI toplam tamamlama
+ * sayisi. Bolge turundan bagimsizdir (kuyu suyu azalinca hatlar
+ * atlanabilir, o zaman ikisi ayrisir).
+ */
+function kezRozeti(hatId) {
+  const n = hatKezSayilari[hatId] || 0
+  if (!n) return ''
+  return `<span class="hat-kez" title="Bu hat bugüne kadar ${n} kez sulandı">${n}. kez</span>`
+}
+
 function hatSatir(hat, durum, tamamlananlar = []) {
   const d = hatDurumuBelirle(hat, durum, tamamlananlar)
   const renkClass = {
@@ -650,6 +677,7 @@ function hatSatir(hat, durum, tamamlananlar = []) {
       <div class="durum-badge ${renkClass}"></div>
       <div class="hat-no">Hat-${hat.hat_no}</div>
       <div class="hat-parsel">${hat.parsel_bilgisi || 'Parsel girilmedi'}</div>
+      ${kezRozeti(hat.id)}
       <div class="hat-sure">${sureyiFormatla(hat.varsayilan_sure_dk)}</div>
       <div class="sayac" id="sayac-${hat.id}">
         ${d === 'aktif' ? '⏱ --:--' : ''}
@@ -1361,4 +1389,268 @@ if ('serviceWorker' in navigator) {
       console.error('Service worker kaydedilemedi:', e)
     )
   })
+}
+
+// ============================================================
+// MANUEL HAT GEÇİŞİ — sıradaki değil, İSTENEN hatta atla
+//
+// Yetki: yonetici/denetleyici (diğer yazma eylemleriyle aynı kapı).
+// RLS sunucuda ayrıca geçerlidir; bu yalnızca arayüz kapısı.
+//
+// SIRA DEĞİŞMEZ: hatlar.sira_no'ya dokunulmaz. Bu tek seferlik bir
+// sapmadır; hedef hat bitince hat_gecis_kontrol() yine orijinal
+// sira_no düzeninden devam eder (siradaki_hat_id, hedefin KENDİ
+// sira_no'suna göre hesaplanır).
+//
+// SÜRE: varsayilan_sure_dk'ya ASLA yazılmaz. Tek seferlik süre
+// sistem_durumu.aktif_hat_sure_dk'ya yazılır; hat değişince sunucu
+// onu temizler (sql/supabase_migration_hat_manuel_gecis.sql).
+// ============================================================
+function manuelGecisYetkisi() {
+  return aktifRol() === 'yonetici' || aktifRol() === 'denetleyici'
+}
+
+window.manuelGecisAc = async () => {
+  if (!manuelGecisYetkisi()) return
+  if (!sistemDurumu?.sistem_acik) {
+    return alert('Sistem kapalı. Manuel hat geçişi yalnızca sulama sürerken kullanılır.')
+  }
+
+  const { data: bolgeZonalari } = await supabase
+    .from('zonalar').select('id, ad, sira_no').eq('bolge_id', aktifBolge.id).order('sira_no')
+
+  const { data: hatlar } = await supabase
+    .from('hatlar')
+    .select('id, zona_id, hat_no, sira_no, parsel_bilgisi, varsayilan_sure_dk')
+    .in('zona_id', (bolgeZonalari || []).map(z => z.id))
+    .order('sira_no')
+
+  const aktif = (hatlar || []).find(h => h.id === sistemDurumu.aktif_hat_id)
+  const zonaAdi = (id) => (bolgeZonalari || []).find(z => z.id === id)?.ad || ''
+
+  const secenekler = (hatlar || [])
+    .filter(h => h.id !== sistemDurumu.aktif_hat_id)
+    .map(h => {
+      const kez = hatKezSayilari[h.id] ? ' · ' + hatKezSayilari[h.id] + '. kez' : ''
+      const parsel = h.parsel_bilgisi ? ' · ' + h.parsel_bilgisi : ''
+      return '<option value="' + h.id + '">Hat-' + h.hat_no + ' — ' +
+             zonaAdi(h.zona_id) + parsel + kez + '</option>'
+    }).join('')
+
+  if (!secenekler) return alert('Geçilebilecek başka hat yok.')
+
+  // Kesilen hattın o ana kadar çalıştığı süre
+  const baslama = sistemDurumu.hat_baslama_zamani
+    || localStorage.getItem('hat_baslama_' + sistemDurumu.aktif_hat_id)
+  const gecenDk = baslama
+    ? Math.max(0, Math.round((Date.now() - new Date(baslama).getTime()) / 60000))
+    : 0
+
+  document.getElementById('manuel-gecis-katman')?.remove()
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="manuel-gecis-katman" style="
+      position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999;
+      display:flex; align-items:center; justify-content:center; padding:16px;
+    ">
+      <div class="popup-kutu" style="
+        background:var(--surface); border:1px solid var(--kenar); border-radius:12px;
+        padding:22px; width:100%; max-width:460px; max-height:90vh; overflow-y:auto;
+      ">
+        <h3 style="color:var(--accent); font-size:16px; margin:0 0 14px;">
+          ⏭ Manuel hat geçişi
+        </h3>
+
+        <div style="
+          background:var(--surface-2); border:1px solid var(--kenar);
+          border-radius:6px; padding:10px 12px; margin-bottom:14px;
+          font-size:12.5px; color:var(--metin-soluk); line-height:1.5;
+        ">
+          Şu an <strong style="color:var(--metin);">Hat-${aktif?.hat_no ?? '?'}</strong>
+          sulanıyor — ${Math.floor(gecenDk / 60)} sa ${gecenDk % 60} dk çalıştı.<br>
+          Sıra değişmez: seçtiğiniz hat bitince otomatik akış
+          <strong style="color:var(--metin);">orijinal sıradan</strong> devam eder.
+        </div>
+
+        <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
+          Hangi hatta geçilsin?
+        </label>
+        <select id="mg-hat" style="
+          width:100%; padding:9px 10px; background:var(--surface-2);
+          border:1px solid var(--kenar); border-radius:6px; color:var(--metin);
+          font-size:13px; margin-bottom:14px;
+        ">${secenekler}</select>
+
+        <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
+          Kesilen Hat-${aktif?.hat_no ?? '?'} ne olsun?
+          <span style="color:var(--error);">*</span>
+        </label>
+        <div style="display:flex; flex-direction:column; gap:7px; margin-bottom:14px;">
+          <label style="
+            display:flex; gap:8px; align-items:flex-start; padding:9px 11px;
+            background:var(--surface-2); border:1px solid var(--kenar);
+            border-radius:6px; cursor:pointer; font-size:12.5px; color:var(--metin);
+          ">
+            <input type="radio" name="mg-kesilen" value="yarim" style="margin-top:2px;">
+            <span><strong>Yarım kaldı — tamamlanmış sayılmasın</strong><br>
+              <span style="color:var(--metin-soluk);">
+                Kayıt süresiz açılır, "kaçıncı su" sayacına eklenmez.</span></span>
+          </label>
+          <label style="
+            display:flex; gap:8px; align-items:flex-start; padding:9px 11px;
+            background:var(--surface-2); border:1px solid var(--kenar);
+            border-radius:6px; cursor:pointer; font-size:12.5px; color:var(--metin);
+          ">
+            <input type="radio" name="mg-kesilen" value="tamam" style="margin-top:2px;">
+            <span><strong>Buraya kadarki süreyle tamamlandı sayılsın</strong><br>
+              <span style="color:var(--metin-soluk);">
+                ${gecenDk} dk tamamlama olarak yazılır, sayaca eklenir.</span></span>
+          </label>
+        </div>
+
+        <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
+          Yeni hattın süresi (dakika) — isteğe bağlı
+        </label>
+        <input id="mg-sure" type="number" min="1" max="1440" inputmode="numeric"
+          placeholder="Boş bırakılırsa hattın kendi varsayılanı"
+          style="
+            width:100%; padding:9px 10px; background:var(--surface-2);
+            border:1px solid var(--kenar); border-radius:6px; color:var(--metin);
+            font-size:13px; box-sizing:border-box;
+          ">
+        <div style="color:var(--metin-silik); font-size:11px; margin:5px 0 16px;">
+          Yalnızca bu çalışma için geçerlidir; hattın kalıcı varsayılan
+          süresi değişmez.
+        </div>
+
+        <div id="mg-mesaj" style="font-size:12.5px; min-height:16px; margin-bottom:10px;"></div>
+
+        <div style="display:flex; gap:9px;">
+          <button id="mg-uygula" class="btn btn-sure" style="flex:1;">Geçişi yap</button>
+          <button id="mg-iptal" class="btn" style="
+            flex:1; background:transparent; border:1px solid var(--kenar);
+            color:var(--metin-soluk);
+          ">Vazgeç</button>
+        </div>
+      </div>
+    </div>
+  `)
+
+  document.getElementById('mg-iptal').onclick =
+    () => document.getElementById('manuel-gecis-katman').remove()
+
+  document.getElementById('mg-uygula').onclick = async (e) => {
+    const mesaj = (metin, renk = 'var(--error)') => {
+      const el = document.getElementById('mg-mesaj')
+      el.style.color = renk
+      el.textContent = metin
+    }
+
+    const hedefId = document.getElementById('mg-hat').value
+    const kesilen = document.querySelector('input[name="mg-kesilen"]:checked')?.value
+    // Varsayılan YOK: yönetici her seferinde açıkça seçmeli
+    if (!kesilen) return mesaj('Kesilen hattın ne olacağını seçin.')
+
+    const sureHam = document.getElementById('mg-sure').value.trim()
+    let tekSeferlikSure = null
+    if (sureHam) {
+      const s = parseInt(sureHam, 10)
+      if (isNaN(s) || s < 1 || s > 1440) return mesaj('Süre 1-1440 dakika arasında olmalı.')
+      tekSeferlikSure = s
+    }
+
+    e.target.disabled = true
+    mesaj('Uygulanıyor...', 'var(--metin-soluk)')
+    try {
+      await manuelGecisUygula({ hedefId, kesilen, tekSeferlikSure, gecenDk, baslama })
+      document.getElementById('manuel-gecis-katman')?.remove()
+      render()
+    } catch (hata) {
+      e.target.disabled = false
+      mesaj(hata.message)
+    }
+  }
+}
+
+/*
+ * Geçişi uygular. hatAtla() ile AYNI deseni izler:
+ *   1) kesilen hat için sulama_kayitlari satırı
+ *   2) sistem_durumu güncellemesi (aktif + sıradaki + başlama)
+ * Farkı: hedef hat serbest seçilir ve tek seferlik süre yazılır.
+ */
+async function manuelGecisUygula({ hedefId, kesilen, tekSeferlikSure, gecenDk, baslama }) {
+  const { data: bolgeZonalari } = await supabase
+    .from('zonalar').select('id').eq('bolge_id', aktifBolge.id)
+
+  const { data: tumHatlar } = await supabase
+    .from('hatlar')
+    .select('id, zona_id, hat_no, sira_no')
+    .in('zona_id', (bolgeZonalari || []).map(z => z.id))
+    .order('sira_no')
+
+  const hedef = tumHatlar.find(h => h.id === hedefId)
+  const kesilenHat = tumHatlar.find(h => h.id === sistemDurumu.aktif_hat_id)
+  if (!hedef) throw new Error('Hedef hat bulunamadı.')
+
+  const simdi = new Date().toISOString()
+  const bas = baslama || simdi
+
+  // 1) Kesilen hattın kaydı — yöneticinin seçimine göre
+  if (kesilen === 'tamam') {
+    // sure_dakika DOLU = gerçek tamamlama, sayaca eklenir
+    const { error } = await supabase.from('sulama_kayitlari').insert({
+      hat_id: sistemDurumu.aktif_hat_id,
+      tur_id: sistemDurumu.aktif_tur_id,
+      baslangic_zamani: bas,
+      bitis_zamani: simdi,
+      sure_dakika: gecenDk,
+      durum: 'tamamlandi'
+    })
+    if (error) {
+      // (hat_id, tur_id) kısmi tekil indeksi: aynı hat aynı turda
+      // ikinci kez tamamlanamaz. Sessizce yutmuyoruz.
+      if (/duplicate|unique/i.test(error.message)) {
+        throw new Error(
+          'Hat-' + (kesilenHat?.hat_no ?? '?') + ' bu turda zaten tamamlanmış; ' +
+          'ikinci tamamlama kaydı açılamaz. "Yarım kaldı" seçeneğini kullanın.')
+      }
+      throw new Error('Kayıt yazılamadı: ' + error.message)
+    }
+  } else {
+    // sure_dakika BOŞ = yarım kaldı, sayaca EKLENMEZ
+    const { error } = await supabase.from('sulama_kayitlari').insert({
+      hat_id: sistemDurumu.aktif_hat_id,
+      tur_id: sistemDurumu.aktif_tur_id,
+      baslangic_zamani: bas,
+      bitis_zamani: simdi,
+      sure_dakika: null,
+      durum: 'iptal',
+      ilac_gubre_notu: 'Manuel geçiş: yarım kaldı (' + gecenDk + ' dk çalıştı)'
+    })
+    if (error) throw new Error('Kayıt yazılamadı: ' + error.message)
+  }
+  localStorage.removeItem('hat_baslama_' + sistemDurumu.aktif_hat_id)
+
+  // 2) Sıradaki hat, HEDEFİN KENDİ sira_no'suna göre — sıra bozulmaz
+  const ayniZona = tumHatlar.filter(h => h.zona_id === hedef.zona_id)
+  const yeniSiradaki = ayniZona.find(h => h.sira_no > hedef.sira_no) || null
+
+  const { error: durumHata } = await supabase
+    .from('sistem_durumu')
+    .update({
+      aktif_hat_id: hedef.id,
+      siradaki_hat_id: yeniSiradaki?.id || null,
+      hat_baslama_zamani: simdi,
+      aktif_hat_sure_dk: tekSeferlikSure,   // null ise hattın varsayılanı
+      guncelleme_zamani: simdi
+    })
+    .eq('bolge_id', aktifBolge.id)
+
+  if (durumHata) throw new Error('Sistem durumu güncellenemedi: ' + durumHata.message)
+
+  logKaydet('hat_gecisi',
+    'Manuel geçiş: Hat-' + (kesilenHat?.hat_no ?? '?') + ' (' +
+    (kesilen === 'tamam' ? gecenDk + ' dk ile tamamlandı sayıldı' : 'yarım kaldı') +
+    ') → Hat-' + hedef.hat_no + ' başladı' +
+    (tekSeferlikSure ? ' — bu çalışma için ' + tekSeferlikSure + ' dk' : ''),
+    aktifBolge.id)
 }

@@ -134,3 +134,37 @@ export async function calisanHatPaneliHTML(durum) {
     </div>
   `
 }
+
+/*
+ * HER HATTIN TOPLAM TAMAMLAMA SAYISI ("kacinci su")
+ *
+ * Bolge genelindeki tur ("Su") sayacindan BAGIMSIZDIR: kuyu suyu
+ * azalinca hatlar atlanabilir/sira degisebilir, o zaman bir hattin
+ * kac kez sulandigi ile turun kacinci su oldugu ayrisir.
+ *
+ * Kaynak: sulama_kayitlari, sure_dakika DOLU olan satirlar.
+ * Bu kural zaten "gercek hat tamamlanmasi"ni isaretler; veri girisi
+ * (not/foto/gubre) satirlari sure_dakika BOS oldugu icin sayilmaz.
+ * Yeni kolon EKLENMEZ, mevcut veriden turetilir.
+ *
+ * Doner: { <hat_id>: <adet> }
+ */
+export async function hatTamamlamaSayilari(hatIdler = []) {
+  if (!hatIdler.length) return {}
+
+  const { data, error } = await supabase
+    .from('sulama_kayitlari')
+    .select('hat_id')
+    .in('hat_id', hatIdler)
+    .not('sure_dakika', 'is', null)
+    .limit(20000)
+
+  if (error) {
+    console.error('Hat tamamlama sayısı hatası:', error.message)
+    return {}
+  }
+
+  const sayim = {}
+  for (const k of data || []) sayim[k.hat_id] = (sayim[k.hat_id] || 0) + 1
+  return sayim
+}

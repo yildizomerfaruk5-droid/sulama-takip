@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js'
-import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi } from './hatlar.js'
+import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla, calisanHatVerisi , hatTamamlamaSayilari} from './hatlar.js'
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
@@ -8,6 +8,9 @@ import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istati
 import {
   izleyicileriGetir, izleyiciKimligi, izleyiciKimligiKaydet, izleyiciKimligiSil
 } from './izleyici.js'
+
+// Her hattin toplam tamamlama sayisi — render sirasinda doldurulur
+let hatKezSayilari = {}
 
 let sistemDurumu = null
 let sayacInterval = null
@@ -198,6 +201,10 @@ export async function viewerRender() {
   const turNo = turBilgisi?.tur_no || '-'
   const zonaAd = turBilgisi?.zonalar?.ad || '-'
 
+  // Her hattin toplam tamamlama sayisi ("kacinci su") — salt okunur
+  hatKezSayilari = await hatTamamlamaSayilari(
+    zonalar.flatMap(z => z.hatlar.map(h => h.id)))
+
   const calisan = await calisanHatVerisi(durum)
 
   app.innerHTML = `
@@ -333,7 +340,9 @@ function viewerMetrikKartlari(durum, turBilgisi, calisan) {
   return `
     <div class="metrik-grid">
       ${kart('🟢', 'Sistem Durumu', acik ? 'AKTİF' : 'KAPALI',
-             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` : 'Sulama yapılmıyor',
+             calisan ? `Çalışan: Hat-${calisan.hat.hat_no}` +
+               (hatKezSayilari[calisan.hat.id] ? ` · ${hatKezSayilari[calisan.hat.id]}. kez` : '')
+             : 'Sulama yapılmıyor',
              acik ? 'acik' : 'kapali')}
       ${kart('💧', 'Çalışan Tur', turBilgisi?.tur_no ? `${turBilgisi.tur_no}. Su` : '—',
              calisan?.vanaNolar ? `Vanalar: ${calisan.vanaNolar}` : '')}
@@ -373,6 +382,18 @@ function viewerZonaKart(zona, durum, tamamlananlar) {
   `
 }
 
+
+/*
+ * "kacinci su" rozeti — hattin BUGUNE KADARKI toplam tamamlama
+ * sayisi. Bolge turundan bagimsizdir (kuyu suyu azalinca hatlar
+ * atlanabilir, o zaman ikisi ayrisir).
+ */
+function kezRozeti(hatId) {
+  const n = hatKezSayilari[hatId] || 0
+  if (!n) return ''
+  return `<span class="hat-kez" title="Bu hat bugüne kadar ${n} kez sulandı">${n}. kez</span>`
+}
+
 function viewerHatSatir(hat, durum, tamamlananlar) {
   const d = hatDurumuBelirle(hat, durum, tamamlananlar)
   const renkClass = {
@@ -387,6 +408,7 @@ function viewerHatSatir(hat, durum, tamamlananlar) {
       <div class="durum-badge ${renkClass}"></div>
       <div class="hat-no">Hat-${hat.hat_no}</div>
       <div class="hat-parsel">${hat.parsel_bilgisi || ''}</div>
+      ${kezRozeti(hat.id)}
       <div class="hat-sure">${sureyiFormatla(hat.varsayilan_sure_dk)}</div>
       <div class="sayac" id="vsayac-${hat.id}">
         ${d === 'aktif' ? '⏱ --:--' : ''}
