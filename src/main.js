@@ -624,9 +624,8 @@ function butonlar(durum) {
         ⏱ Süre Değiştir
       </button>
       ${manuelGecisYetkisi() ? `
-        <button class="btn" ${!acik ? 'disabled' : ''} onclick="manuelGecisAc()"
-          title="Sıradaki değil, istediğiniz hatta geçin"
-          style="background:transparent; border:1px solid var(--accent); color:var(--accent);">
+        <button class="btn btn-hat-sec" ${!acik ? 'disabled' : ''} onclick="manuelGecisAc()"
+          title="Sıradaki değil, istediğiniz hatta geçin">
           ⤳ Hat Seç
         </button>` : ''}
     </div>
