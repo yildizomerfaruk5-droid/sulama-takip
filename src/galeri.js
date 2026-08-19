@@ -26,7 +26,7 @@ export async function galeriKayitlariGetir(bolgeId = null) {
 
 export function galeriHTML(kayitlar) {
   if (kayitlar.length === 0) {
-    return '<div style="color:#7f8c8d; padding:20px; text-align:center;">Henüz fotoğraf yok. Hat popup\'ından fotoğraf ekledikçe burada hat ve su sırasına göre birikecek.</div>'
+    return '<div style="color:var(--metin-soluk); padding:20px; text-align:center;">Henüz fotoğraf yok. Hat popup\'ından fotoğraf ekledikçe burada hat ve su sırasına göre birikecek.</div>'
   }
 
   // Hat -> Tur -> fotograflar seklinde grupla
@@ -66,18 +66,18 @@ export function galeriHTML(kayitlar) {
                 width: 96px; height: 96px;
                 object-fit: cover;
                 border-radius: 6px;
-                border: 1px solid #2c3e50;
+                border: 1px solid var(--kenar);
                 cursor: pointer;
               "
             />
-            <div style="color:#7f8c8d; font-size:10px;">${tarih} ${saat}</div>
+            <div style="color:var(--metin-soluk); font-size:10px;">${tarih} ${saat}</div>
           </div>
         `
       }).join('')
 
       return `
         <div style="margin-bottom:10px;">
-          <div style="color:#f9ca24; font-size:12px; font-weight:bold; margin-bottom:6px;">
+          <div style="color:var(--warning); font-size:12px; font-weight:bold; margin-bottom:6px;">
             ${turNo > 0 ? `💧 ${turNo}. Su` : '📌 Tur dışı kayıt'}
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:8px;">${fotolar}</div>
@@ -87,15 +87,15 @@ export function galeriHTML(kayitlar) {
 
     return `
       <div style="
-        background: #1a2634;
-        border: 1px solid #2c3e50;
+        background: var(--surface);
+        border: 1px solid var(--kenar);
         border-radius: 8px;
         padding: 14px;
         margin-bottom: 12px;
       ">
-        <div style="color:#5dade2; font-weight:bold; font-size:14px; margin-bottom:10px;">
+        <div style="color:var(--accent); font-weight:bold; font-size:14px; margin-bottom:10px;">
           Hat-${hat.hatNo}
-          <span style="color:#7f8c8d; font-size:12px; font-weight:normal;">
+          <span style="color:var(--metin-soluk); font-size:12px; font-weight:normal;">
             ${hat.parsel} ${hat.zona ? '— ' + hat.zona : ''}
           </span>
         </div>
@@ -128,10 +128,10 @@ window.galeriBuyut = (url, aciklama) => {
         max-height: 85vh;
         border-radius: 8px;
       "/>
-      <div style="color:#e0e0e0; font-size:14px; margin-top:12px; text-align:center;">
+      <div style="color:var(--metin); font-size:14px; margin-top:12px; text-align:center;">
         ${aciklama}
       </div>
-      <div style="color:#7f8c8d; font-size:12px; margin-top:4px;">kapatmak için dokun</div>
+      <div style="color:var(--metin-soluk); font-size:12px; margin-top:4px;">kapatmak için dokun</div>
     </div>
   `)
 }

@@ -29,7 +29,7 @@ export async function gecmisKayitlariGetir(bolgeId = null) {
 
 export function gecmisHTML(kayitlar, silinebilir = false) {
   if (kayitlar.length === 0) {
-    return '<div style="color:#7f8c8d; padding:20px; text-align:center;">Henüz kayıt yok.</div>'
+    return '<div style="color:var(--metin-soluk); padding:20px; text-align:center;">Henüz kayıt yok.</div>'
   }
 
   return kayitlar.map(k => {
@@ -46,17 +46,17 @@ export function gecmisHTML(kayitlar, silinebilir = false) {
       : '-'
 
     const durumRenk = {
-      tamamlandi: '#26de81',
-      atlandi: '#f9ca24',
-      iptal: '#ff4757'
-    }[k.durum] || '#7f8c8d'
+      tamamlandi: 'var(--success)',
+      atlandi: 'var(--warning)',
+      iptal: 'var(--error)'
+    }[k.durum] || 'var(--metin-soluk)'
 
     return `
       <div class="kayit-satir">
         <div class="kayit-sol">
           <div class="kayit-hat">
             Hat-${hat?.hat_no || '?'}
-            <span style="color:#7f8c8d; font-size:11px;">
+            <span style="color:var(--metin-soluk); font-size:11px;">
               ${hat?.parsel_bilgisi || ''} — ${hat?.zonalar?.ad || ''}
             </span>
           </div>
@@ -83,7 +83,7 @@ export function gecmisHTML(kayitlar, silinebilir = false) {
               background: none;
               border: 1px solid #4a2020;
               border-radius: 4px;
-              color: #ff4757;
+              color: var(--error);
               cursor: pointer;
               font-size: 13px;
               padding: 2px 8px;

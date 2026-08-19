@@ -34,25 +34,25 @@ export async function loglariGetir(bolgeId = null, limit = 50) {
 }
 
 const OLAY_GORUNUM = {
-  sistem_baslatildi:  ['▶', '#26de81'],
-  sistem_kapatildi:   ['■', '#ff4757'],
-  hat_gecisi:         ['⏭', '#2e86de'],
-  zona_gecisi:        ['⏩', '#2e86de'],
-  tur_tamamlandi:     ['🏁', '#f9ca24'],
-  sure_degistirildi:  ['⏱', '#8e44ad'],
-  kayit_eklendi:      ['📝', '#5dade2'],
-  yedek_alindi:       ['💾', '#00cec9'],
-  kayit_silindi:      ['🗑', '#ff4757'],
-  kurulum:            ['⚙', '#5dade2']
+  sistem_baslatildi:  ['▶', 'var(--success)'],
+  sistem_kapatildi:   ['■', 'var(--error)'],
+  hat_gecisi:         ['⏭', 'var(--info)'],
+  zona_gecisi:        ['⏩', 'var(--info)'],
+  tur_tamamlandi:     ['🏁', 'var(--warning)'],
+  sure_degistirildi:  ['⏱', 'var(--info)'],
+  kayit_eklendi:      ['📝', 'var(--accent)'],
+  yedek_alindi:       ['💾', 'var(--accent)'],
+  kayit_silindi:      ['🗑', 'var(--error)'],
+  kurulum:            ['⚙', 'var(--accent)']
 }
 
 export function logHTML(loglar) {
   if (loglar.length === 0) {
-    return '<div style="color:#7f8c8d; font-size:13px; padding:8px;">Henüz olay kaydı yok.</div>'
+    return '<div style="color:var(--metin-soluk); font-size:13px; padding:8px;">Henüz olay kaydı yok.</div>'
   }
 
   return loglar.map(l => {
-    const [ikon, renk] = OLAY_GORUNUM[l.olay] || ['•', '#7f8c8d']
+    const [ikon, renk] = OLAY_GORUNUM[l.olay] || ['•', 'var(--metin-soluk)']
     const zaman = new Date(l.olusturma_zamani).toLocaleString('tr-TR')
     return `
       <div style="
@@ -60,16 +60,16 @@ export function logHTML(loglar) {
         align-items: center;
         gap: 10px;
         padding: 8px 12px;
-        background: #0f1923;
-        border: 1px solid #2c3e50;
+        background: var(--surface-2);
+        border: 1px solid var(--kenar);
         border-radius: 6px;
         margin-bottom: 5px;
         font-size: 12.5px;
       ">
         <span style="color:${renk}; font-size:14px; width:18px; text-align:center;">${ikon}</span>
         <div style="flex:1; min-width:0;">
-          <span style="color:#e0e0e0;">${l.detay || l.olay}</span>
-          <div style="color:#7f8c8d; font-size:11px;">
+          <span style="color:var(--metin);">${l.detay || l.olay}</span>
+          <div style="color:var(--metin-soluk); font-size:11px;">
             ${zaman}${l.kullanici_email ? ' • ' + l.kullanici_email : ''}
           </div>
         </div>
@@ -106,7 +106,7 @@ export async function ziyaretcileriGetir(limit = 20) {
 
 export function ziyaretciHTML(kayitlar) {
   if (kayitlar.length === 0) {
-    return '<div style="color:#7f8c8d; font-size:13px; padding:8px;">Henüz misafir görüntülemesi yok.</div>'
+    return '<div style="color:var(--metin-soluk); font-size:13px; padding:8px;">Henüz misafir görüntülemesi yok.</div>'
   }
 
   return kayitlar.map(z => `
@@ -115,16 +115,16 @@ export function ziyaretciHTML(kayitlar) {
       justify-content: space-between;
       align-items: center;
       padding: 8px 12px;
-      background: #0f1923;
-      border: 1px solid #2c3e50;
+      background: var(--surface-2);
+      border: 1px solid var(--kenar);
       border-radius: 6px;
       margin-bottom: 5px;
       font-size: 12.5px;
     ">
-      <span style="color:#e0e0e0;">
+      <span style="color:var(--metin);">
         👁 ${z.izleyiciler?.ad ? `${z.izleyiciler.ad} — ` : ''}İzleme ekranı açıldı
       </span>
-      <span style="color:#7f8c8d;">
+      <span style="color:var(--metin-soluk);">
         ${new Date(z.olusturma_zamani).toLocaleString('tr-TR')} • ${cihazOzeti(z.cihaz)}${z.ip ? ` • ${z.ip}` : ''}
       </span>
     </div>

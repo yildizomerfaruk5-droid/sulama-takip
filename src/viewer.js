@@ -91,34 +91,34 @@ function kimlikSeriti(izleyiciler) {
     return `
       <div id="izleyici-serit" style="
         display:flex; justify-content:flex-end; align-items:center; gap:8px;
-        font-size:11.5px; color:#7f8c8d; padding:2px 2px 10px;
+        font-size:11.5px; color:var(--metin-soluk); padding:2px 2px 10px;
       ">
-        <span>Ben: <strong style="color:#bdc3c7; font-weight:600;">${kimlik.ad}</strong></span>
-        <a href="#" id="izleyici-degistir" style="color:#5dade2; text-decoration:none;">değiştir</a>
+        <span>Ben: <strong style="color:var(--metin); font-weight:600;">${kimlik.ad}</strong></span>
+        <a href="#" id="izleyici-degistir" style="color:var(--accent); text-decoration:none;">değiştir</a>
       </div>
     `
   }
 
   const secenekler = izleyiciler.map(i => `
     <button type="button" class="izleyici-sec" data-id="${i.id}" data-ad="${i.ad}" style="
-      padding:7px 12px; background:#0f1923; border:1px solid #2c3e50;
-      border-radius:6px; color:#e0e0e0; font-size:13px; cursor:pointer;
+      padding:7px 12px; background:var(--surface-2); border:1px solid var(--kenar);
+      border-radius:6px; color:var(--metin); font-size:13px; cursor:pointer;
     ">${i.ad}</button>
   `).join('')
 
   return `
     <div id="izleyici-serit" style="
-      background:#16222e; border:1px solid #2c3e50; border-radius:8px;
+      background:var(--surface); border:1px solid var(--kenar); border-radius:8px;
       padding:10px 12px; margin-bottom:14px;
     ">
-      <div style="color:#bdc3c7; font-size:12.5px; margin-bottom:8px;">
+      <div style="color:var(--metin); font-size:12.5px; margin-bottom:8px;">
         👋 Sen kimsin? (kayıtlarda görünsün diye — bir kez sorulur)
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:6px;">
         ${secenekler}
         <button type="button" class="izleyici-sec" data-id="" data-ad="Bilmiyorum" style="
-          padding:7px 12px; background:transparent; border:1px dashed #2c3e50;
-          border-radius:6px; color:#7f8c8d; font-size:13px; cursor:pointer;
+          padding:7px 12px; background:transparent; border:1px dashed var(--kenar);
+          border-radius:6px; color:var(--metin-soluk); font-size:13px; cursor:pointer;
         ">Bilmiyorum / Diğer</button>
       </div>
     </div>
@@ -269,7 +269,7 @@ export async function viewerRender() {
         <div id="galeri-liste">Yükleniyor...</div>
       </details>
 
-      <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
+      <div style="text-align:center; color:var(--metin-silik); font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
         developed by Ömer Faruk Yıldız
       </div>
     </div>

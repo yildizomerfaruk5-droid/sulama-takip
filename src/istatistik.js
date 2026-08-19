@@ -69,7 +69,7 @@ export async function istatistikVerileriGetir(bolgeId = null) {
 }
 
 export function istatistikHTML() {
-  return '<div id="ist-icerik" style="color:#7f8c8d;">Yükleniyor...</div>'
+  return '<div id="ist-icerik" style="color:var(--metin-soluk);">Yükleniyor...</div>'
 }
 
 export async function istatistikCiz(veri) {
@@ -131,10 +131,10 @@ function bolumCiz() {
 
   const stil = `
     padding: 7px 10px;
-    background: #0f1923;
-    border: 1px solid #2c3e50;
+    background: var(--surface-2);
+    border: 1px solid var(--kenar);
     border-radius: 6px;
-    color: #e0e0e0;
+    color: var(--metin);
     font-size: 13px;
   `
 
@@ -184,7 +184,7 @@ function bolumCiz() {
 
     <div class="ist-grafik-kutu">
       <div class="ist-grafik-baslik">Gübre Kullanımı — dekar başına doz</div>
-      <div id="gubre-ozet" style="color:#7f8c8d; font-size:11.5px; margin-bottom:8px;"></div>
+      <div id="gubre-ozet" style="color:var(--metin-soluk); font-size:11.5px; margin-bottom:8px;"></div>
       <div style="position:relative; height:230px; max-width:420px; margin:0 auto;">
         <canvas id="grafik-gubre"></canvas>
       </div>
@@ -213,10 +213,10 @@ function bolumCiz() {
   icerikCiz()
 }
 
-function kart(baslik, deger, renk = '#5dade2') {
+function kart(baslik, deger, renk = 'var(--accent)') {
   return `
-    <div style="background:#1a2634; border:1px solid #2c3e50; border-radius:8px; padding:12px 14px;">
-      <div style="color:#7f8c8d; font-size:11px; margin-bottom:4px;">${baslik}</div>
+    <div style="background:var(--surface); border:1px solid var(--kenar); border-radius:8px; padding:12px 14px;">
+      <div style="color:var(--metin-soluk); font-size:11px; margin-bottom:4px;">${baslik}</div>
       <div style="color:${renk}; font-size:18px; font-weight:bold;">${deger}</div>
     </div>
   `
@@ -237,14 +237,14 @@ function icerikCiz() {
   document.getElementById('ist-kartlar').innerHTML = [
     kart('Toplam Sulama', saatFormat(toplamDk), '#2e86de'),
     kart('Sulama Sayısı', sul.length, '#26de81'),
-    kart('Ortalama Süre', sul.length ? saatFormat(ortDk) : '—', '#e0e0e0'),
+    kart('Ortalama Süre', sul.length ? saatFormat(ortDk) : '—', 'var(--metin)'),
     kart('Fotoğraf', foto, '#f9ca24'),
     kart('Gübre (sıvı)', `${Math.round(litre * 10) / 10} litre`, '#a29bfe'),
     kart('Gübre (katı)', `${Math.round(kg * 10) / 10} kg`, '#a29bfe')
   ].join('')
 
   if (!Chart) return   // tembel yukleme henuz bitmediyse grafik cizilmez
-  Chart.defaults.color = '#7f8c8d'
+  Chart.defaults.color = 'var(--metin-soluk)'
   Chart.defaults.borderColor = 'rgba(44, 62, 80, 0.6)'
 
   // ── 1) Tur karsilastirma (tur filtresinden bagimsiz) ──
@@ -271,7 +271,7 @@ function icerikCiz() {
         labels: turlar.map(n => `${n}. Su`),
         datasets: [{
           data: turlar.map(n => Math.round(turToplam[n] / 6) / 10),
-          backgroundColor: '#00cec9',
+          backgroundColor: 'var(--accent)',
           borderRadius: 4,
           maxBarThickness: 60
         }]
@@ -335,9 +335,9 @@ function icerikCiz() {
   const ozetEl = document.getElementById('gubre-ozet')
   if (ozetEl) {
     ozetEl.innerHTML = toplamDekar
-      ? `Toplam sulanan alan: <b style="color:#e0e0e0">~${Math.round(toplamDekar)} dekar</b> &nbsp;•&nbsp; ` +
+      ? `Toplam sulanan alan: <b style="color:var(--metin)">~${Math.round(toplamDekar)} dekar</b> &nbsp;•&nbsp; ` +
         Object.entries(gubreMutlakToplam)
-          .map(([ad, m]) => `${ad.replace(/\s*\((litre|kg)\)/, '')}: <b style="color:#e0e0e0">${Math.round(m)} ${ad.includes('kg') ? 'kg' : 'lt'}</b>`)
+          .map(([ad, m]) => `${ad.replace(/\s*\((litre|kg)\)/, '')}: <b style="color:var(--metin)">${Math.round(m)} ${ad.includes('kg') ? 'kg' : 'lt'}</b>`)
           .join(' &nbsp;•&nbsp; ')
       : ''
   }
@@ -346,7 +346,7 @@ function icerikCiz() {
   if (gubCv) {
     if (gubreAdlari.length === 0) {
       gubCv.parentElement.innerHTML =
-        '<div style="color:#7f8c8d; text-align:center; padding:30px;">Bu filtrede gübre kaydı yok.</div>'
+        '<div style="color:var(--metin-soluk); text-align:center; padding:30px;">Bu filtrede gübre kaydı yok.</div>'
     } else {
       grafikler.push(new Chart(gubCv, {
         type: 'doughnut',
@@ -354,8 +354,8 @@ function icerikCiz() {
           labels: gubreAdlari,
           datasets: [{
             data: gubreAdlari.map(ad => Math.round(gubreToplam[ad] * 100) / 100),
-            backgroundColor: ['#2e86de', '#26de81', '#f9ca24', '#a29bfe', '#e17055', '#00cec9', '#fd79a8'],
-            borderColor: '#1a2634', borderWidth: 2
+            backgroundColor: ['#2e86de', '#26de81', '#f9ca24', '#a29bfe', '#e17055', 'var(--accent)', '#fd79a8'],
+            borderColor: 'var(--surface)', borderWidth: 2
           }]
         },
         options: {
@@ -396,13 +396,13 @@ function tabloCiz(sul, gub) {
   if (!el) return
 
   if (nolar.length === 0) {
-    el.innerHTML = '<div style="color:#7f8c8d; padding:12px;">Bu filtrede kayıt yok.</div>'
+    el.innerHTML = '<div style="color:var(--metin-soluk); padding:12px;">Bu filtrede kayıt yok.</div>'
     return
   }
 
   el.innerHTML = `
     <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
-      <tr style="color:#5dade2; text-align:left;">
+      <tr style="color:var(--accent); text-align:left;">
         <th style="padding:6px 8px;">Hat</th>
         <th style="padding:6px 8px;">Sulama</th>
         <th style="padding:6px 8px;">Toplam</th>
@@ -417,7 +417,7 @@ function tabloCiz(sul, gub) {
           s.kg ? `${Math.round(s.kg * 10) / 10} kg` : ''
         ].filter(Boolean).join(' + ') || '—'
         return `
-          <tr style="border-top:1px solid #16222e; color:#e0e0e0;">
+          <tr style="border-top:1px solid var(--surface); color:var(--metin);">
             <td style="padding:6px 8px; font-weight:bold;">Hat-${no}</td>
             <td style="padding:6px 8px;">${s.sayi} kez</td>
             <td style="padding:6px 8px;">${saatFormat(s.dk)}</td>

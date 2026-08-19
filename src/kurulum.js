@@ -777,7 +777,7 @@ function adim3HTML() {
         <div class="kurulum-ipucu">
           ${adaylar.length} poligon bulundu. Aktarmak istediklerinizi işaretleyin;
           adı ve zonasını burada düzeltebilirsiniz.
-          ${adaylar.some(a => a.hata) ? '<br><b style="color:#ff4757">Kırmızı satırlarda ada/parsel bilgisi yoktu — ad otomatik üretildi, kontrol edin.</b>' : ''}
+          ${adaylar.some(a => a.hata) ? '<br><b style="color:var(--error)">Kırmızı satırlarda ada/parsel bilgisi yoktu — ad otomatik üretildi, kontrol edin.</b>' : ''}
         </div>
         <div class="kurulum-tablo-sar">
           <table class="kurulum-tablo">
@@ -1101,7 +1101,7 @@ function adim5HTML() {
         <div class="kurulum-ipucu">
           ${adaylar.length} satır çözüldü.
           ${durum.iceAktarmaAdaylari.hataliSayisi > 0
-            ? `<b style="color:#ff4757">${durum.iceAktarmaAdaylari.hataliSayisi} satır ayrıştırılamadı</b> — kırmızı satırları elle doldurun.`
+            ? `<b style="color:var(--error)">${durum.iceAktarmaAdaylari.hataliSayisi} satır ayrıştırılamadı</b> — kırmızı satırları elle doldurun.`
             : 'Sahada yazılan açıklamalardan fıskiye sayısı ve yön çıkarıldı; kontrol edin.'}
         </div>
         <div class="kurulum-tablo-sar">
@@ -1311,7 +1311,7 @@ function kuralEditoruHTML() {
     <div class="kurulum-kart kurulum-kural-kart">
       <h3>⚙ Özel dizilim kuralı — Vana ${vanaEtiketi(v)}</h3>
       <div class="kurulum-ipucu">
-        Değişiklikler haritada <b style="color:#f9ca24">sarı</b> olarak anında önizlenir.
+        Değişiklikler haritada <b style="color:var(--warning)">sarı</b> olarak anında önizlenir.
         Kaydetmeden harita çizimi değişmez.
       </div>
 
@@ -1384,7 +1384,7 @@ function kuralOnizle() {
 
   noktalar.forEach(n => {
     L.circleMarker([n.lat, n.lng], {
-      radius: 3.5, stroke: false, fillColor: '#f9ca24', fillOpacity: 0.95
+      radius: 3.5, stroke: false, fillColor: 'var(--warning)', fillOpacity: 0.95
     }).addTo(onizlemeKatmani)
   })
 
@@ -1398,9 +1398,9 @@ function kuralOnizle() {
 
 // Hat kapasitesi bandı (spec adım 6: yeşil 75-95, sarı 60-75/95-110, kırmızı dışı)
 function fiskiyeBandRengi(n) {
-  if (n >= HAT_BAND_YESIL[0] && n <= HAT_BAND_YESIL[1]) return { renk: '#26de81', etiket: 'ideal (75-95)' }
-  if (n >= HAT_BAND_SARI[0] && n <= HAT_BAND_SARI[1]) return { renk: '#f9ca24', etiket: 'kabul edilebilir' }
-  return { renk: '#ff4757', etiket: 'bant dışı' }
+  if (n >= HAT_BAND_YESIL[0] && n <= HAT_BAND_YESIL[1]) return { renk: 'var(--success)', etiket: 'ideal (75-95)' }
+  if (n >= HAT_BAND_SARI[0] && n <= HAT_BAND_SARI[1]) return { renk: 'var(--warning)', etiket: 'kabul edilebilir' }
+  return { renk: 'var(--error)', etiket: 'bant dışı' }
 }
 
 function adim6HTML() {
@@ -1600,7 +1600,7 @@ function ozetHTML() {
 
   const hatsizVanalar = durum.vanalar.filter(v => !v.hat_id)
   const ekimYonuBosVanalar = durum.vanalar.filter(v => !v.ekim_yonu_derece)
-  const bantDisiHatlar = durum.hatlar.filter(h => fiskiyeBandRengi(h.gercek_fiskiye).renk === '#ff4757')
+  const bantDisiHatlar = durum.hatlar.filter(h => fiskiyeBandRengi(h.gercek_fiskiye).renk === 'var(--error)')
   const vanasizHatlar = durum.hatlar.filter(h => h.vana_sayisi === 0)
 
   const uyarilar = [
@@ -1732,7 +1732,7 @@ function vanalariCiz() {
       icon: L.divIcon({
         className: '',
         html: `<div style="width:11px;height:11px;background:${eksik ? '#f5cd79' : '#e74c3c'};
-               border:2px solid #0f1923;transform:rotate(45deg);box-sizing:border-box;"></div>`,
+               border:2px solid var(--surface-2);transform:rotate(45deg);box-sizing:border-box;"></div>`,
         iconSize: [11, 11],
         iconAnchor: [5, 5]
       })
@@ -1817,14 +1817,14 @@ function vanalariCizAdim6() {
     const baskaHatta = editorAcik && !secili && grup.some(x => x.hat_id && x.hat_id !== durum.hatDuzenleId)
 
     let renk = '#e74c3c'
-    if (editorAcik) renk = secili ? '#1450b8' : (baskaHatta ? '#f5cd79' : '#7f8c8d')
-    else if (grup.some(x => x.hat_id)) renk = '#26de81'
+    if (editorAcik) renk = secili ? '#1450b8' : (baskaHatta ? '#f5cd79' : 'var(--metin-soluk)')
+    else if (grup.some(x => x.hat_id)) renk = 'var(--success)'
 
     const toplamF = grup.reduce((t, x) => t + (x.fiskiye_sayisi || 0), 0)
 
     const isaret = L.circleMarker([v.lat, v.lng], {
       radius: secili ? 8 : 6,
-      color: '#0f1923',
+      color: 'var(--surface-2)',
       weight: 2,
       fillColor: renk,
       fillOpacity: 0.9
@@ -1920,15 +1920,15 @@ function cizimGuncelle() {
 
   const n = cizim.noktalar
   n.forEach((k, i) => {
-    L.circleMarker(k, { radius: 4, color: '#f9ca24', weight: 2, fillColor: '#f9ca24', fillOpacity: 1 })
+    L.circleMarker(k, { radius: 4, color: 'var(--warning)', weight: 2, fillColor: 'var(--warning)', fillOpacity: 1 })
       .bindTooltip(String(i + 1), { direction: 'top' })
       .addTo(cizimKatmani)
   })
 
   if (cizim.tip === 'parsel' && n.length >= 3) {
-    L.polygon(n, { color: '#f9ca24', weight: 2, dashArray: '6,4', fillOpacity: 0.15 }).addTo(cizimKatmani)
+    L.polygon(n, { color: 'var(--warning)', weight: 2, dashArray: '6,4', fillOpacity: 0.15 }).addTo(cizimKatmani)
   } else if ((cizim.tip === 'boru' || cizim.tip === 'yon') && n.length >= 2) {
-    L.polyline(n, { color: '#f9ca24', weight: 3, dashArray: '6,4' }).addTo(cizimKatmani)
+    L.polyline(n, { color: 'var(--warning)', weight: 3, dashArray: '6,4' }).addTo(cizimKatmani)
   }
 
   const bilgi = document.getElementById('k-cizim-bilgi')

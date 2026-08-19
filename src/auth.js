@@ -45,30 +45,30 @@ export function loginHTML() {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #0f1923;
+      background: var(--surface-2);
     ">
       <div style="
-        background: #1a2634;
-        border: 1px solid #2c3e50;
+        background: var(--surface);
+        border: 1px solid var(--kenar);
         border-radius: 12px;
         padding: 40px;
         width: 360px;
       ">
         <h1 style="
-          color: #5dade2;
+          color: var(--accent);
           font-size: 20px;
           margin-bottom: 8px;
           text-align: center;
         ">🌾 SULAMA TAKİP</h1>
         <p style="
-          color: #7f8c8d;
+          color: var(--metin-soluk);
           font-size: 13px;
           text-align: center;
           margin-bottom: 28px;
         ">Admin Girişi</p>
 
         <div style="margin-bottom: 16px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+          <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
             E-posta
           </label>
           <input 
@@ -78,10 +78,10 @@ export function loginHTML() {
             style="
               width: 100%;
               padding: 10px 14px;
-              background: #0f1923;
-              border: 1px solid #2c3e50;
+              background: var(--surface-2);
+              border: 1px solid var(--kenar);
               border-radius: 6px;
-              color: #e0e0e0;
+              color: var(--metin);
               font-size: 14px;
               outline: none;
               box-sizing: border-box;
@@ -90,7 +90,7 @@ export function loginHTML() {
         </div>
 
         <div style="margin-bottom: 24px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+          <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
             Şifre
           </label>
           <input 
@@ -100,10 +100,10 @@ export function loginHTML() {
             style="
               width: 100%;
               padding: 10px 14px;
-              background: #0f1923;
-              border: 1px solid #2c3e50;
+              background: var(--surface-2);
+              border: 1px solid var(--kenar);
               border-radius: 6px;
-              color: #e0e0e0;
+              color: var(--metin);
               font-size: 14px;
               outline: none;
               box-sizing: border-box;
@@ -116,7 +116,7 @@ export function loginHTML() {
           style="
             width: 100%;
             padding: 12px;
-            background: #2e86de;
+            background: var(--info);
             border: none;
             border-radius: 6px;
             color: #fff;
@@ -133,16 +133,16 @@ export function loginHTML() {
             padding: 11px;
             margin-top: 10px;
             background: transparent;
-            border: 1px solid #2c3e50;
+            border: 1px solid var(--kenar);
             border-radius: 6px;
-            color: #5dade2;
+            color: var(--accent);
             font-size: 14px;
             cursor: pointer;
           "
         >👁 Misafir Olarak İzle</button>
 
         <div id="login-hata" style="
-          color: #ff4757;
+          color: var(--error);
           font-size: 13px;
           text-align: center;
           margin-top: 12px;
@@ -155,7 +155,7 @@ export function loginHTML() {
 
 export function girisGecmisiHTML(kayitlar) {
   if (kayitlar.length === 0) {
-    return '<div style="color:#7f8c8d; font-size:13px;">Henüz giriş kaydı yok.</div>'
+    return '<div style="color:var(--metin-soluk); font-size:13px;">Henüz giriş kaydı yok.</div>'
   }
 
   return kayitlar.map(k => {
@@ -172,17 +172,17 @@ export function girisGecmisiHTML(kayitlar) {
         justify-content: space-between;
         align-items: center;
         padding: 10px 14px;
-        background: #0f1923;
-        border: 1px solid #2c3e50;
+        background: var(--surface-2);
+        border: 1px solid var(--kenar);
         border-radius: 6px;
         margin-bottom: 6px;
         font-size: 13px;
       ">
         <div>
-          <div style="color:#e0e0e0; font-weight:bold;">${k.kullanici_email}</div>
-          <div style="color:#7f8c8d; font-size:12px;">${tarih}</div>
+          <div style="color:var(--metin); font-weight:bold;">${k.kullanici_email}</div>
+          <div style="color:var(--metin-soluk); font-size:12px;">${tarih}</div>
         </div>
-        <div style="color:#7f8c8d;">${kisaCihaz}</div>
+        <div style="color:var(--metin-soluk);">${kisaCihaz}</div>
       </div>
     `
   }).join('')

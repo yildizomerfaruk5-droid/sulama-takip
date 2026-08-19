@@ -130,7 +130,7 @@ export async function calisanHatPaneliHTML(durum) {
       <span>Geçen: <span class="chp-sayac" id="panel-sayac">--:--:--</span></span>
       <span>Kalan: <span class="chp-sayac" id="panel-kalan"
         data-sure="${hat.varsayilan_sure_dk || ''}"
-        style="color:#f9ca24;">--:--:--</span></span>
+        style="color:var(--warning);">--:--:--</span></span>
     </div>
   `
 }

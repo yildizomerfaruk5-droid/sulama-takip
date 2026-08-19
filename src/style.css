@@ -7,26 +7,42 @@
    bu turda tamamlanan = yesil, bekleyen = kendi gri tonu.
    ============================================================ */
 :root {
-  --bg: #0f172a;            /* sayfa zemini — koyu lacivert */
-  --surface: #1e293b;       /* kart yuzeyi — bir ton acik */
-  --surface-2: #172033;     /* kart icindeki girinti (satir, input) */
-  --surface-3: #263449;     /* hover */
-  --kenar: #334155;         /* kart kenarligi */
-  --kenar-soluk: #1f2c40;   /* ic ayirici cizgiler */
+  /* --- Yuzeyler --- */
+  --bg: #080B10;            /* sayfa zemini */
+  --ust-bar: #0D1117;       /* ust serit / header */
+  --surface: #121820;       /* kart yuzeyi */
+  --surface-2: #0D1117;     /* kart icindeki girinti (satir, input) */
+  --surface-3: #18212B;     /* kart hover */
+  --kenar: #242E38;         /* kenarlik */
+  --kenar-soluk: #1A222C;   /* ic ayirici cizgiler (kenardan bir ton koyu) */
 
-  --metin: #e2e8f0;         /* ana metin — kirik beyaz */
-  --metin-soluk: #94a3b8;   /* ikincil metin — gri */
-  --metin-silik: #64748b;   /* ucuncul (etiket, dipnot) */
+  /* --- Metin --- */
+  --metin: #E8EDF2;         /* birincil metin */
+  --metin-soluk: #7F8B98;   /* ikincil metin */
+  --metin-silik: #5A6674;   /* ucuncul (etiket, dipnot) */
 
-  --accent: #38bdf8;        /* TEK canli vurgu — baslik, baglanti, odak */
-  --accent-koyu: #0284c7;   /* vurgu butonu zemini */
+  /* --- Vurgu --- */
+  --accent: #20B89A;        /* birincil / sulama vurgusu */
+  --accent-koyu: #178C75;   /* vurgu butonu basili hali */
 
-  /* Durum renkleri — is mantigi, degistirmeyin */
+  /* --- Anlamsal arayuz renkleri (buton, mesaj, dogrulama) --- */
+  --success: #35C47A;
+  --warning: #D9A441;
+  --error:   #D9575F;
+  --info:    #438ED0;
+  --tehlike: var(--error);  /* eski ad — geriye donuk takma ad */
+
+  /* ============================================================
+     DURUM RENKLERI — IS MANTIGI, DEGISTIRMEYIN
+     Hat satirlarindaki noktalar sulama durumunu kodlar (README).
+     Palet degisiklikleri bunlara DOKUNMAZ.
+       aktif = rgb(46,134,222)   siradaki = rgb(249,202,36)
+       tamam = rgb(38,222,129)   bekleyen = rgb(61,61,61)
+     ============================================================ */
   --durum-aktif: #2e86de;
   --durum-siradaki: #f9ca24;
   --durum-tamam: #26de81;
   --durum-pasif: #3d3d3d;
-  --tehlike: #ff4757;
 
   --r: 10px;                /* kart kose yaricapi */
   --r-kucuk: 6px;
@@ -118,8 +134,8 @@ body {
 }
 
 /* Metrik kart icindeki durum vurgulari */
-.metrik-deger.acik  { color: var(--durum-tamam); }
-.metrik-deger.kapali { color: var(--tehlike); }
+.metrik-deger.acik  { color: var(--success); }
+.metrik-deger.kapali { color: var(--error); }
 
 /* ── Ana bolum: solda harita, sagda hat listeleri ── */
 .pano-ana {
@@ -234,7 +250,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: var(--surface);
+  background: var(--ust-bar);
   border: 1px solid var(--kenar);
   border-radius: var(--r);
   margin-bottom: 18px;
@@ -398,9 +414,10 @@ body {
 .btn:hover { opacity: 0.85; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-basla  { background: var(--durum-tamam); color: #000; }
-.btn-durdur { background: var(--tehlike); color: #fff; }
-.btn-atla   { background: var(--durum-siradaki); color: #000; }
+.btn-basla  { background: var(--success); color: #000; }
+.btn-durdur { background: var(--error); color: #fff; }
+.btn-atla   { background: var(--warning); color: #000; }
+.btn-sure   { background: var(--info); color: #fff; }
 
 /* LOADING */
 .loading {
@@ -447,7 +464,7 @@ body {
 
 .kayit-not {
   font-size: 12px;
-  color: var(--durum-siradaki);
+  color: var(--warning);
   margin-top: 4px;
 }
 
@@ -505,8 +522,8 @@ body {
 
 /* Calisan hat paneli */
 .calisan-hat-panel {
-  background: linear-gradient(90deg, #12314f, var(--surface));
-  border: 1px solid var(--durum-aktif);
+  background: linear-gradient(90deg, var(--surface-3), var(--surface));
+  border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 16px;
@@ -567,7 +584,7 @@ body {
 /* Saha cizimi girilmemis bolge icin kuruluma yonlendiren ipucu */
 .harita-ipucu {
   background: rgba(15, 25, 35, 0.9);
-  border: 1px solid var(--durum-aktif);
+  border: 1px solid var(--accent);
   border-radius: 6px;
   color: #dfe6e9;
   font-size: 12px;
@@ -684,8 +701,8 @@ body {
 }
 .kurulum-sekme:hover { background: var(--surface-3); }
 .kurulum-sekme.aktif {
-  background: #12314f;
-  border-color: var(--durum-aktif);
+  background: var(--surface-3);
+  border-color: var(--accent);
   color: var(--accent);
   font-weight: bold;
 }
@@ -740,7 +757,7 @@ body {
   font-family: inherit;
 }
 .kurulum-govde input:focus,
-.kurulum-govde select:focus { outline: 1px solid var(--durum-aktif); }
+.kurulum-govde select:focus { outline: 1px solid var(--accent); }
 .kurulum-govde input[readonly] { color: var(--metin-soluk); }
 
 .kurulum-satir { margin-bottom: 14px; }
@@ -778,7 +795,7 @@ body {
 
 .kurulum-btn {
   padding: 9px 16px;
-  background: var(--durum-aktif);
+  background: var(--accent);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -811,8 +828,8 @@ body {
   font-size: 12.5px;
   color: var(--metin-soluk);
 }
-.kurulum-mesaj-basari { color: var(--durum-tamam); }
-.kurulum-mesaj-hata { color: var(--tehlike); }
+.kurulum-mesaj-basari { color: var(--success); }
+.kurulum-mesaj-hata { color: var(--error); }
 
 @media (max-width: 600px) {
   .kurulum-izgara { grid-template-columns: 1fr; }
@@ -830,8 +847,8 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 .kurulum-birak.uzerinde {
-  border-color: var(--durum-aktif);
-  background: #12314f;
+  border-color: var(--accent);
+  background: var(--surface-3);
 }
 .kurulum-birak-metin {
   font-size: 13px;
@@ -878,8 +895,8 @@ body {
   flex-wrap: wrap;
   padding: 10px 12px;
   margin-bottom: 10px;
-  background: #12314f;
-  border: 1px solid var(--durum-aktif);
+  background: var(--surface-3);
+  border: 1px solid var(--accent);
   border-radius: 8px;
 }
 .kurulum-cizim-baslik {
@@ -929,7 +946,7 @@ body {
   cursor: pointer;
 }
 .kurulum-mini:hover { background: var(--surface-3); }
-.kurulum-mini-dolu { border-color: var(--durum-siradaki); color: var(--durum-siradaki); }
+.kurulum-mini-dolu { border-color: var(--warning); color: var(--warning); }
 .kurulum-mini-sil:hover { background: #4a1f1a; border-color: #c0392b; }
 .kurulum-satir-butonlar { white-space: nowrap; }
 .kurulum-yon-hucre {
@@ -944,15 +961,15 @@ body {
   flex-wrap: wrap;
   padding: 10px 12px;
   margin-bottom: 10px;
-  background: #12314f;
-  border: 1px solid var(--durum-aktif);
+  background: var(--surface-3);
+  border: 1px solid var(--accent);
   border-radius: 8px;
   font-size: 12.5px;
   color: #dfe6e9;
 }
 .kurulum-govde .kurulum-toplu input,
 .kurulum-govde .kurulum-toplu select { width: auto; }
-.kurulum-kural-kart { border-color: var(--durum-siradaki); }
+.kurulum-kural-kart { border-color: var(--warning); }
 
 /* Kurulum adim 6: hat sirasi, hat ozeti, kurulum ozeti */
 .kurulum-sira-hucre {
@@ -993,7 +1010,7 @@ body {
 }
 .kurulum-ozet-kutu b { font-size: 22px; color: var(--accent); }
 .kurulum-ozet-kutu span { font-size: 11.5px; color: var(--metin-soluk); }
-.kurulum-ozet-temiz { color: var(--durum-tamam); font-size: 13px; padding: 6px 0; }
+.kurulum-ozet-temiz { color: var(--success); font-size: 13px; padding: 6px 0; }
 .kurulum-uyari-satir {
   padding: 8px 12px;
   margin-bottom: 8px;
@@ -1046,7 +1063,7 @@ body {
   resize: vertical;
   margin-bottom: 8px;
 }
-.kurulum-govde .kurulum-geojson-alan:focus { outline: 1px solid var(--durum-aktif); }
+.kurulum-govde .kurulum-geojson-alan:focus { outline: 1px solid var(--accent); }
 .kurulum-ipucu code {
   background: var(--surface-2);
   border: 1px solid var(--kenar);
@@ -1062,8 +1079,8 @@ body {
 
 /* Kurulum: ogretici paneli ve adim basligi */
 .kurulum-ogretici {
-  background: #12314f;
-  border: 1px solid var(--durum-aktif);
+  background: var(--surface-3);
+  border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 14px;
@@ -1103,7 +1120,7 @@ body {
   margin-bottom: 12px;
   cursor: pointer;
 }
-.kurulum-ogretici-ac:hover { color: var(--accent); border-color: var(--durum-aktif); }
+.kurulum-ogretici-ac:hover { color: var(--accent); border-color: var(--accent); }
 
 .kurulum-adim-basligi { margin-bottom: 12px; }
 .kurulum-adim-basligi h2 {
@@ -1180,7 +1197,7 @@ body {
   padding: 8px 12px;
   margin-bottom: 10px;
 }
-.kuyruk-bos { color: var(--durum-tamam); font-size: 13px; padding: 10px 0; }
+.kuyruk-bos { color: var(--success); font-size: 13px; padding: 10px 0; }
 .kuyruk-satir {
   display: flex;
   justify-content: space-between;

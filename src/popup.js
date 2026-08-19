@@ -17,8 +17,8 @@ export function popupHTML(hat) {
       box-sizing: border-box;
     ">
       <div style="
-        background: #1a2634;
-        border: 1px solid #2c3e50;
+        background: var(--surface);
+        border: 1px solid var(--kenar);
         border-radius: 12px;
         padding: 24px;
         width: 100%;
@@ -29,16 +29,16 @@ export function popupHTML(hat) {
       ">
         
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-          <h3 style="color:#5dade2; font-size:16px; margin:0;">
+          <h3 style="color:var(--accent); font-size:16px; margin:0;">
             Hat-${hat.hat_no} 
-            <span style="color:#7f8c8d; font-size:13px; font-weight:normal;">
+            <span style="color:var(--metin-soluk); font-size:13px; font-weight:normal;">
               ${hat.parsel_bilgisi || ''}
             </span>
           </h3>
           <button id="popup-kapat-btn" style="
             background: none;
             border: none;
-            color: #7f8c8d;
+            color: var(--metin-soluk);
             font-size: 24px;
             cursor: pointer;
             padding: 4px 8px;
@@ -47,16 +47,16 @@ export function popupHTML(hat) {
         </div>
 
         <div style="margin-bottom:14px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+          <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
             Not (isteğe bağlı)
           </label>
           <textarea id="popup-not" rows="3" placeholder="Örn: 2 kg Üre + 1 lt İlaç X" style="
             width: 100%;
             padding: 10px 12px;
-            background: #0f1923;
-            border: 1px solid #2c3e50;
+            background: var(--surface-2);
+            border: 1px solid var(--kenar);
             border-radius: 6px;
-            color: #e0e0e0;
+            color: var(--metin);
             font-size: 14px;
             resize: vertical;
             box-sizing: border-box;
@@ -64,39 +64,39 @@ export function popupHTML(hat) {
         </div>
 
         <div style="margin-bottom:14px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+          <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
             Gübre Uygulaması
           </label>
           <div id="gubre-listesi" style="
-            background: #0c141d;
-            border: 1px solid #2c3e50;
+            background: var(--surface-2);
+            border: 1px solid var(--kenar);
             border-radius: 6px;
             padding: 8px;
           ">Yükleniyor...</div>
         </div>
 
         <div style="margin-bottom:20px;">
-          <label style="color:#bdc3c7; font-size:13px; display:block; margin-bottom:6px;">
+          <label style="color:var(--metin); font-size:13px; display:block; margin-bottom:6px;">
             Fotoğraf
           </label>
           <div style="display:flex; gap:8px;">
             <button id="foto-kamera-btn" type="button" style="
               flex: 1;
               padding: 10px;
-              background: #0f1923;
-              border: 1px solid #2c3e50;
+              background: var(--surface-2);
+              border: 1px solid var(--kenar);
               border-radius: 6px;
-              color: #e0e0e0;
+              color: var(--metin);
               font-size: 13px;
               cursor: pointer;
             ">📷 Kamera</button>
             <button id="foto-galeri-btn" type="button" style="
               flex: 1;
               padding: 10px;
-              background: #0f1923;
-              border: 1px solid #2c3e50;
+              background: var(--surface-2);
+              border: 1px solid var(--kenar);
               border-radius: 6px;
-              color: #e0e0e0;
+              color: var(--metin);
               font-size: 13px;
               cursor: pointer;
             ">🖼 Galeriden Seç</button>
@@ -110,7 +110,7 @@ export function popupHTML(hat) {
           <button id="popup-kaydet-btn" style="
             flex: 1;
             padding: 12px;
-            background: #26de81;
+            background: var(--success);
             border: none;
             border-radius: 6px;
             color: #000;
@@ -122,9 +122,9 @@ export function popupHTML(hat) {
             flex: 1;
             padding: 12px;
             background: transparent;
-            border: 1px solid #2c3e50;
+            border: 1px solid var(--kenar);
             border-radius: 6px;
-            color: #7f8c8d;
+            color: var(--metin-soluk);
             font-size: 15px;
             cursor: pointer;
           ">İptal</button>
@@ -147,10 +147,10 @@ let gubreYazabilir = false   // yalnızca yonetici/denetleyici yeni tanım ekley
 
 const ALAN_STILI = `
     padding: 7px 6px;
-    background: #0f1923;
-    border: 1px solid #2c3e50;
+    background: var(--surface-2);
+    border: 1px solid var(--kenar);
     border-radius: 6px;
-    color: #e0e0e0;
+    color: var(--metin);
     font-size: 13px;
     box-sizing: border-box;
   `
@@ -172,7 +172,7 @@ function yeniGubreBolumuHTML() {
 
   if (!navigator.onLine) {
     return `
-      <div style="padding:8px 2px 2px; color:#7f8c8d; font-size:11.5px; line-height:1.5;">
+      <div style="padding:8px 2px 2px; color:var(--metin-soluk); font-size:11.5px; line-height:1.5;">
         📴 Yeni gübre tanımlamak için internet bağlantısı gerekli —
         mevcut gübreleri çevrimdışı da kaydedebilirsiniz.
       </div>
@@ -182,7 +182,7 @@ function yeniGubreBolumuHTML() {
   return `
     <div id="yeni-gubre-bolum" style="padding:8px 2px 2px;">
       <a id="yeni-gubre-ac" href="#" style="
-        color:#5dade2; font-size:12.5px; text-decoration:none; cursor:pointer;
+        color:var(--accent); font-size:12.5px; text-decoration:none; cursor:pointer;
       ">➕ Yeni gübre ekle</a>
 
       <div id="yeni-gubre-form" style="display:none; gap:6px; align-items:center; padding:6px 0 2px;">
@@ -193,12 +193,12 @@ function yeniGubreBolumuHTML() {
           <option value="kg">kg</option>
         </select>
         <button id="yeni-gubre-kaydet" type="button" style="
-          padding:8px 12px; background:#26de81; border:none; border-radius:6px;
+          padding:8px 12px; background:var(--success); border:none; border-radius:6px;
           color:#000; font-size:13px; font-weight:bold; cursor:pointer; flex-shrink:0;
         ">Kaydet</button>
         <button id="yeni-gubre-iptal" type="button" style="
-          padding:7px 10px; background:transparent; border:1px solid #2c3e50;
-          border-radius:6px; color:#7f8c8d; font-size:13px; cursor:pointer; flex-shrink:0;
+          padding:7px 10px; background:transparent; border:1px solid var(--kenar);
+          border-radius:6px; color:var(--metin-soluk); font-size:13px; cursor:pointer; flex-shrink:0;
         ">✕</button>
       </div>
 
@@ -225,7 +225,7 @@ function gubreListesiOlustur() {
   })
 
   if (gubreSecenekleri.length === 0) {
-    liste.innerHTML = '<div style="color:#7f8c8d; font-size:12px;">Gübre tanımı bulunamadı.</div>'
+    liste.innerHTML = '<div style="color:var(--metin-soluk); font-size:12px;">Gübre tanımı bulunamadı.</div>'
       + yeniGubreBolumuHTML()
     yeniGubreOlaylari()
     return
@@ -236,12 +236,12 @@ function gubreListesiOlustur() {
   liste.innerHTML = gubreSecenekleri.map(g => `
     <div class="gubre-satir" data-gubre="${g.id}" style="
       display:flex; gap:6px; align-items:center; padding:5px 0;
-      border-bottom:1px solid #16222e;
+      border-bottom:1px solid var(--surface);
     ">
       <input type="checkbox" class="gubre-sec" style="
-        width:17px; height:17px; accent-color:#26de81; cursor:pointer; flex-shrink:0;
+        width:17px; height:17px; accent-color:var(--success); cursor:pointer; flex-shrink:0;
       ">
-      <span class="gubre-adi" style="flex:1; min-width:0; color:#bdc3c7; font-size:13px; cursor:pointer;">
+      <span class="gubre-adi" style="flex:1; min-width:0; color:var(--metin); font-size:13px; cursor:pointer;">
         ${g.ad}
       </span>
       <input class="gubre-miktar" type="number" min="0" step="0.1" placeholder="4" disabled
@@ -317,7 +317,7 @@ function yeniGubreOlaylari() {
   const adAlani = document.getElementById('yeni-gubre-ad')
   const mesajEl = document.getElementById('yeni-gubre-mesaj')
 
-  const mesaj = (metin, renk = '#7f8c8d') => {
+  const mesaj = (metin, renk = 'var(--metin-soluk)') => {
     mesajEl.style.color = renk
     mesajEl.innerHTML = metin
   }
@@ -343,11 +343,11 @@ function yeniGubreOlaylari() {
 
   async function kaydet() {
     const ad = adAlani.value.trim()
-    if (!ad) return mesaj('Gübre adı gerekli.', '#ff4757')
+    if (!ad) return mesaj('Gübre adı gerekli.', 'var(--error)')
 
     // Tanım yazması: çevrimdışı kuyruğa alınmaz (kırık FK olurdu)
     if (!navigator.onLine) {
-      return mesaj('📴 Yeni gübre tanımlamak için internet bağlantısı gerekli.', '#f9ca24')
+      return mesaj('📴 Yeni gübre tanımlamak için internet bağlantısı gerekli.', 'var(--warning)')
     }
 
     const btn = document.getElementById('yeni-gubre-kaydet')
@@ -363,7 +363,7 @@ function yeniGubreOlaylari() {
 
     if (aramaHatasi) {
       btn.disabled = false
-      return mesaj(yazmaHatasi(aramaHatasi), '#ff4757')
+      return mesaj(yazmaHatasi(aramaHatasi), 'var(--error)')
     }
 
     if (varOlan?.length > 0) {
@@ -371,18 +371,18 @@ function yeniGubreOlaylari() {
       btn.disabled = false
 
       if (mevcut.aktif) {
-        return mesaj(`"${mevcut.ad}" zaten listede.`, '#f9ca24')
+        return mesaj(`"${mevcut.ad}" zaten listede.`, 'var(--warning)')
       }
 
       // Pasif kayıt: yeniden eklemek yerine tekrar aktif etmeyi öner
       mesaj(`"${mevcut.ad}" daha önce tanımlanmış ama pasif. ` +
-        `<a href="#" id="gubre-aktif-et" style="color:#26de81">Tekrar aktif et</a>`, '#f9ca24')
+        `<a href="#" id="gubre-aktif-et" style="color:var(--success)">Tekrar aktif et</a>`, 'var(--warning)')
 
       document.getElementById('gubre-aktif-et').addEventListener('click', async (e) => {
         e.preventDefault()
         mesaj('Aktifleştiriliyor...')
         const { error } = await supabase.from('gubreler').update({ aktif: true }).eq('id', mevcut.id)
-        if (error) return mesaj(yazmaHatasi(error), '#ff4757')
+        if (error) return mesaj(yazmaHatasi(error), 'var(--error)')
         await gubreleriYukle()
         gubreyiIsaretle(mevcut.id)
       })
@@ -408,7 +408,7 @@ function yeniGubreOlaylari() {
       .single()
 
     btn.disabled = false
-    if (error) return mesaj(yazmaHatasi(error), '#ff4757')
+    if (error) return mesaj(yazmaHatasi(error), 'var(--error)')
 
     // Kullanıcı bu gübreyi girmek için ekledi: işaretle ve miktara odaklan
     await gubreleriYukle()
@@ -466,7 +466,7 @@ export function popupEventleriEkle(hatId, turId, hatEtiketi = '', rol = 'isci') 
     reader.onload = (ev) => {
       document.getElementById('foto-onizleme').innerHTML = `
         <img src="${ev.target.result}" style="width:100%; border-radius:6px; max-height:200px; object-fit:cover;">
-        <div style="color:#7f8c8d; font-size:11px; margin-top:4px;">${dosya.name}</div>
+        <div style="color:var(--metin-soluk); font-size:11px; margin-top:4px;">${dosya.name}</div>
       `
     }
     reader.readAsDataURL(dosya)
@@ -510,18 +510,18 @@ export async function popupKaydet(hatId, turId, hatEtiketi = '') {
   const gubreler = secilenGubreler()
   const foto = secilenFoto
 
-  mesajEl.style.color = '#7f8c8d'
+  mesajEl.style.color = 'var(--metin-soluk)'
   mesajEl.textContent = 'Kaydediliyor...'
   kaydetBtn.disabled = true
 
   const kuyruklaVeKapat = async (sebep) => {
     try {
       await kuyrugaEkle({ veri, foto, gubreler, etiket: hatEtiketi })
-      mesajEl.style.color = '#f9ca24'
+      mesajEl.style.color = 'var(--warning)'
       mesajEl.innerHTML = `📴 ${sebep}<br>Kayıt cihazda saklandı, sinyal gelince gönderilecek.`
       setTimeout(() => document.getElementById('popup-overlay')?.remove(), 1800)
     } catch (e) {
-      mesajEl.style.color = '#ff4757'
+      mesajEl.style.color = 'var(--error)'
       mesajEl.textContent = 'Kuyruğa alınamadı: ' + e.message
       kaydetBtn.disabled = false
     }
@@ -569,7 +569,7 @@ export async function popupKaydet(hatId, turId, hatEtiketi = '') {
       if (gubreHata) throw new Error(gubreHata.message)
     }
 
-    mesajEl.style.color = '#26de81'
+    mesajEl.style.color = 'var(--success)'
     mesajEl.textContent = '✓ Kaydedildi!'
     setTimeout(() => document.getElementById('popup-overlay')?.remove(), 800)
 
@@ -578,7 +578,7 @@ export async function popupKaydet(hatId, turId, hatEtiketi = '') {
     // Sunucu reddettiyse (doğrulama, yetki) kuyruklamak anlamsız,
     // sonsuza dek tekrar denenirdi; kullanıcıya söylenir.
     if (agHatasiMi(hata)) return kuyruklaVeKapat('Bağlantı kesildi.')
-    mesajEl.style.color = '#ff4757'
+    mesajEl.style.color = 'var(--error)'
     mesajEl.textContent = 'Hata: ' + hata.message
     kaydetBtn.disabled = false
   }

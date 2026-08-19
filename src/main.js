@@ -128,10 +128,10 @@ async function render() {
         <div style="margin-bottom:10px;">
           <button onclick="yedekAl(this)" style="
             padding: 6px 14px;
-            background: #00cec9;
+            background: var(--accent);
             border: none;
             border-radius: 6px;
-            color: #003330;
+            color: var(--metin);
             font-size: 12px;
             font-weight: bold;
             cursor: pointer;
@@ -151,7 +151,7 @@ async function render() {
         <div id="ziyaretci-liste">Yükleniyor...</div>
       </details>
 
-      <div style="text-align:center; color:#2f4156; font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
+      <div style="text-align:center; color:var(--metin-silik); font-size:10px; padding:20px 0 10px; letter-spacing:0.4px;">
         developed by Ömer Faruk Yıldız
       </div>
     </div>
@@ -232,10 +232,10 @@ function istatistikTetikleyiciKur(bolgeId) {
 // bu bölümü hiç görmez.
 const IZLEYICI_ALAN_STILI = `
   padding: 7px 6px;
-  background: #0f1923;
-  border: 1px solid #2c3e50;
+  background: var(--surface-2);
+  border: 1px solid var(--kenar);
   border-radius: 6px;
-  color: #e0e0e0;
+  color: var(--metin);
   font-size: 13px;
   box-sizing: border-box;
 `
@@ -256,22 +256,22 @@ async function izleyiciTanimlariniCiz() {
   const izleyiciler = await izleyicileriGetir({ hepsi: true })
 
   const satirlar = izleyiciler.length === 0
-    ? '<div style="color:#7f8c8d; font-size:12px; padding:4px 0;">Henüz izleyici tanımlanmadı.</div>'
+    ? '<div style="color:var(--metin-soluk); font-size:12px; padding:4px 0;">Henüz izleyici tanımlanmadı.</div>'
     : izleyiciler.map(i => `
         <div class="izleyici-satir" data-id="${i.id}" style="
           display:flex; gap:6px; align-items:center; padding:5px 0;
-          border-bottom:1px solid #16222e;
+          border-bottom:1px solid var(--surface);
         ">
-          <span style="flex:1; min-width:0; color:${i.aktif ? '#bdc3c7' : '#5b6b7a'}; font-size:13px;">
+          <span style="flex:1; min-width:0; color:${i.aktif ? 'var(--metin)' : 'var(--metin-silik)'}; font-size:13px;">
             ${i.ad}${i.aktif ? '' : ' <span style="font-size:11px;">(pasif)</span>'}
           </span>
           <button type="button" class="izleyici-adlandir" data-id="${i.id}" data-ad="${i.ad}" style="
-            padding:5px 9px; background:transparent; border:1px solid #2c3e50;
-            border-radius:6px; color:#7f8c8d; font-size:12px; cursor:pointer; flex-shrink:0;
+            padding:5px 9px; background:transparent; border:1px solid var(--kenar);
+            border-radius:6px; color:var(--metin-soluk); font-size:12px; cursor:pointer; flex-shrink:0;
           ">✎</button>
           <button type="button" class="izleyici-aktiflik" data-id="${i.id}" data-aktif="${i.aktif}" style="
-            padding:5px 9px; background:transparent; border:1px solid #2c3e50;
-            border-radius:6px; color:${i.aktif ? '#7f8c8d' : '#26de81'}; font-size:12px;
+            padding:5px 9px; background:transparent; border:1px solid var(--kenar);
+            border-radius:6px; color:${i.aktif ? 'var(--metin-soluk)' : 'var(--success)'}; font-size:12px;
             cursor:pointer; flex-shrink:0; min-width:74px;
           ">${i.aktif ? 'Pasifleştir' : 'Aktif et'}</button>
         </div>
@@ -279,12 +279,12 @@ async function izleyiciTanimlariniCiz() {
 
   kap.innerHTML = `
     <div style="
-      background:#0c141d; border:1px solid #2c3e50; border-radius:6px;
+      background:var(--surface-2); border:1px solid var(--kenar); border-radius:6px;
       padding:10px 12px; margin-bottom:12px;
     ">
-      <div style="color:#bdc3c7; font-size:12.5px; margin-bottom:8px;">
+      <div style="color:var(--metin); font-size:12.5px; margin-bottom:8px;">
         İzleyici tanımları
-        <span style="color:#7f8c8d; font-size:11px;">
+        <span style="color:var(--metin-soluk); font-size:11px;">
           — izleme ekranını açan kişi kendini bu listeden seçer
         </span>
       </div>
@@ -293,19 +293,19 @@ async function izleyiciTanimlariniCiz() {
 
       <div style="padding:8px 2px 2px;">
         <a id="yeni-izleyici-ac" href="#" style="
-          color:#5dade2; font-size:12.5px; text-decoration:none; cursor:pointer;
+          color:var(--accent); font-size:12.5px; text-decoration:none; cursor:pointer;
         ">➕ Yeni izleyici ekle</a>
 
         <div id="yeni-izleyici-form" style="display:none; gap:6px; align-items:center; padding:6px 0 2px;">
           <input id="yeni-izleyici-ad" type="text" placeholder="İsim" maxlength="60"
             style="flex:1; min-width:0; ${IZLEYICI_ALAN_STILI}">
           <button id="yeni-izleyici-kaydet" type="button" style="
-            padding:8px 12px; background:#26de81; border:none; border-radius:6px;
+            padding:8px 12px; background:var(--success); border:none; border-radius:6px;
             color:#000; font-size:13px; font-weight:bold; cursor:pointer; flex-shrink:0;
           ">Kaydet</button>
           <button id="yeni-izleyici-iptal" type="button" style="
-            padding:7px 10px; background:transparent; border:1px solid #2c3e50;
-            border-radius:6px; color:#7f8c8d; font-size:13px; cursor:pointer; flex-shrink:0;
+            padding:7px 10px; background:transparent; border:1px solid var(--kenar);
+            border-radius:6px; color:var(--metin-soluk); font-size:13px; cursor:pointer; flex-shrink:0;
           ">✕</button>
         </div>
 
@@ -322,7 +322,7 @@ function izleyiciOlaylari() {
   if (!kap) return
 
   const mesajEl = document.getElementById('yeni-izleyici-mesaj')
-  const mesaj = (metin, renk = '#7f8c8d') => {
+  const mesaj = (metin, renk = 'var(--metin-soluk)') => {
     if (!mesajEl) return
     mesajEl.style.color = renk
     mesajEl.innerHTML = metin
@@ -359,20 +359,20 @@ function izleyiciOlaylari() {
     const sonuc = await izleyiciEkle(adAlani.value)
     btn.disabled = false
 
-    if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+    if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, 'var(--error)')
 
     if (sonuc.durum === 'zaten_var') {
-      return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, '#f9ca24')
+      return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, 'var(--warning)')
     }
 
     // Pasif kayıt: kopyasını açmak yerine tekrar aktif etmeyi öner
     if (sonuc.durum === 'pasif_var') {
       mesaj(`"${sonuc.izleyici.ad}" daha önce tanımlanmış ama pasif. ` +
-        `<a href="#" id="izleyici-aktif-et" style="color:#26de81">Tekrar aktif et</a>`, '#f9ca24')
+        `<a href="#" id="izleyici-aktif-et" style="color:var(--success)">Tekrar aktif et</a>`, 'var(--warning)')
       document.getElementById('izleyici-aktif-et').addEventListener('click', async (e) => {
         e.preventDefault()
         const g = await izleyiciAktiflik(sonuc.izleyici.id, true)
-        if (g.durum === 'hata') return mesaj(g.mesaj, '#ff4757')
+        if (g.durum === 'hata') return mesaj(g.mesaj, 'var(--error)')
         await izleyiciTanimlariniCiz()
       })
       return
@@ -386,9 +386,9 @@ function izleyiciOlaylari() {
       const yeniAd = prompt('Yeni isim:', btn.dataset.ad)
       if (yeniAd === null) return
       const sonuc = await izleyiciAdiDegistir(btn.dataset.id, yeniAd)
-      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, 'var(--error)')
       if (sonuc.durum === 'zaten_var') {
-        return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, '#f9ca24')
+        return mesaj(`"${sonuc.izleyici.ad}" zaten listede.`, 'var(--warning)')
       }
       await izleyiciTanimlariniCiz()
     })
@@ -398,7 +398,7 @@ function izleyiciOlaylari() {
     btn.addEventListener('click', async () => {
       const suAnAktif = btn.dataset.aktif === 'true'
       const sonuc = await izleyiciAktiflik(btn.dataset.id, !suAnAktif)
-      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, '#ff4757')
+      if (sonuc.durum === 'hata') return mesaj(sonuc.mesaj, 'var(--error)')
       await izleyiciTanimlariniCiz()
     })
   })
@@ -416,7 +416,7 @@ function bolgeIsareti(b) {
 function bolgeSecici() {
   // Tek bölge varsa (veya denetleyici kilitliyse) sadece adı göster
   if (bolgeler.length <= 1) {
-    return `<div class="meta" style="color:#5dade2;"
+    return `<div class="meta" style="color:var(--accent);"
       ${aktifBolge?.kurulum_tamam === false ? 'title="Kurulum tamamlanmış olarak işaretlenmedi"' : ''}
       >${bolgeIsareti(aktifBolge)} ${aktifBolge?.ad || ''}</div>`
   }
@@ -424,10 +424,10 @@ function bolgeSecici() {
     <select onchange="bolgeDegistir(this.value)"
       title="🚧 = kurulumu tamamlanmamış bölge" style="
       padding: 6px 10px;
-      background: #0f1923;
-      border: 1px solid #2c3e50;
+      background: var(--surface-2);
+      border: 1px solid var(--kenar);
       border-radius: 6px;
-      color: #5dade2;
+      color: var(--accent);
       font-size: 13px;
       cursor: pointer;
     ">
@@ -456,9 +456,9 @@ function header() {
             style="
               padding: 6px 14px;
               background: transparent;
-              border: 1px solid #2c3e50;
+              border: 1px solid var(--kenar);
               border-radius: 6px;
-              color: #5dade2;
+              color: var(--accent);
               font-size: 12px;
               cursor: pointer;
             "
@@ -469,9 +469,9 @@ function header() {
           style="
             padding: 6px 14px;
             background: transparent;
-            border: 1px solid #2c3e50;
+            border: 1px solid var(--kenar);
             border-radius: 6px;
-            color: #7f8c8d;
+            color: var(--metin-soluk);
             font-size: 12px;
             cursor: pointer;
           "
@@ -584,7 +584,7 @@ function duruBanner(durum, turBilgisi) {
   return `
     <div class="durum-banner">
       <span class="label">Sistem:</span>
-      <span class="value" style="color: ${acik ? '#26de81' : '#ff4757'}">
+      <span class="value" style="color: ${acik ? 'var(--success)' : 'var(--error)'}">
         ${acik ? '● AKTİF' : '● KAPALI'}
       </span>
       ${acik ? `
@@ -611,7 +611,7 @@ function butonlar(durum) {
       <button class="btn btn-atla" ${!acik ? 'disabled' : ''} onclick="hatAtla()">
         ⏭ Sıradaki Hat
       </button>
-      <button class="btn" ${!acik ? 'disabled' : ''} onclick="sureDegistir()" style="background:#8e44ad; color:#fff;">
+      <button class="btn btn-sure" ${!acik ? 'disabled' : ''} onclick="sureDegistir()">
         ⏱ Süre Değiştir
       </button>
     </div>
@@ -1352,7 +1352,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Gömülü geliştirici imzası (konsolda, build sonrasında da kalıcı)
 console.info('%c🌾 Sulama Takip — developed by Ömer Faruk Yıldız (manco)',
-  'color:#5dade2; font-size:11px;')
+  'color:var(--accent); font-size:11px;')
 
 // ── PWA: Service Worker kaydı ──
 if ('serviceWorker' in navigator) {
