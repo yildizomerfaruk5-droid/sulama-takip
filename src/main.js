@@ -560,12 +560,17 @@ function ozellikKartlari() {
   `
 }
 
-// Özellik kartından ilgili <details> bölümünü açıp oraya kaydır
+// Özellik kartından ilgili <details> bölümünü açıp oraya kaydır.
+// Bölümler kapalıyken CSS ile gizli (.bolum:not([open])), bu yüzden
+// önce açılır, düzen oluştuktan SONRA kaydırılır — aksi halde
+// tarayıcı henüz yer kaplamayan elemana kaydırmaya çalışır.
 window.bolumAc = (id) => {
   const el = document.getElementById(id)
   if (!el) return
   el.open = true
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  requestAnimationFrame(() => {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 // ── DURUM BANNER ──

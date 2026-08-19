@@ -287,7 +287,19 @@ export async function viewerRender() {
     if (el) el.innerHTML = galeriHTML(kayitlar)
   })
 
-  istatistikVerileriGetir(bolge?.id).then(veri => istatistikCiz(veri))
+  // İstatistik açılışta hesaplanmaz; bölüm ilk açıldığında tetiklenir
+  ;(() => {
+    const bolum = document.getElementById('bolum-istatistik')
+    if (!bolum) return
+    let yuklendi = false
+    const yukle = () => {
+      if (yuklendi) return
+      yuklendi = true
+      istatistikVerileriGetir(bolge?.id).then(veri => istatistikCiz(veri))
+    }
+    bolum.addEventListener('toggle', () => { if (bolum.open) yukle() })
+    if (bolum.open) yukle()
+  })()
 
   const haritaEl = document.getElementById('harita')
   if (haritaEl) {
@@ -335,11 +347,17 @@ function viewerMetrikKartlari(durum, turBilgisi, calisan) {
   `
 }
 
+// Özellik kartından ilgili <details> bölümünü açıp oraya kaydır.
+// Bölümler kapalıyken CSS ile gizli (.bolum:not([open])), bu yüzden
+// önce açılır, düzen oluştuktan SONRA kaydırılır — aksi halde
+// tarayıcı henüz yer kaplamayan elemana kaydırmaya çalışır.
 window.viewerBolumAc = (id) => {
   const el = document.getElementById(id)
   if (!el) return
   el.open = true
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  requestAnimationFrame(() => {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 function viewerZonaKart(zona, durum, tamamlananlar) {

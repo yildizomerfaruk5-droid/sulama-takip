@@ -159,6 +159,10 @@ body {
 .hat-listesi-kaydir {
   max-height: 330px;
   overflow-y: auto;
+  /* Tek eksene 'auto' verilince tarayici diger ekseni de 'auto'ya
+     cevirir ve yatay kaydirma cubugu cikar. Yatayi kapatiyoruz:
+     satirlar kapsayiciya sigmak zorunda. */
+  overflow-x: hidden;
   padding-right: 4px;
 }
 
@@ -218,6 +222,10 @@ body {
   .metrik-grid { grid-template-columns: 1fr; gap: 10px; }
   .metrik-deger { font-size: 17px; }
   .alt-kartlar { grid-template-columns: 1fr; }
+
+  /* Dar ekranda zonalar yan yana sikismasin: her zona tam
+     genislikte, alt alta. Satirlar boylece okunakli kalir. */
+  .hat-listeleri { grid-template-columns: 1fr; }
 }
 
 /* HEADER */
@@ -282,8 +290,11 @@ body {
 .hat-satir {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border-radius: 6px;
   background: var(--surface-2);
   border: 1px solid var(--kenar);
@@ -312,18 +323,29 @@ body {
   font-size: 13px;
   font-weight: bold;
   color: var(--metin);
-  min-width: 50px;
+  flex: 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .hat-parsel {
   font-size: 12px;
   color: var(--metin-soluk);
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hat-sure {
   font-size: 12px;
   color: var(--metin-soluk);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* SAYAÇ */
@@ -331,8 +353,12 @@ body {
   font-size: 13px;
   font-weight: bold;
   color: var(--durum-aktif);
-  min-width: 60px;
+  flex: 0 1 auto;
+  min-width: 0;
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* DURUM BANNER */
@@ -558,6 +584,28 @@ body {
   margin-bottom: 10px;
   overflow: hidden;
 }
+/* ------------------------------------------------------------
+   ACILIR BOLUMLER (details.bolum) — TEK GIRIS NOKTASI KARTLAR
+
+   Bolum icerikleri (tablolar, grafikler, galeri) burada yasar,
+   ama KAPALIYKEN gorunmezler. Yoksa yeni ozellik kartlarinin
+   hemen altinda ayni baslikların ikinci bir yigini olusuyordu.
+
+   Akis: kart tiklanir -> ilgili details.open = true -> bolum
+   gorunur ve oraya kaydirilir. Basligina tiklayinca kapanir ve
+   yine gizlenir; tekrar acmak icin kart kullanilir.
+   ------------------------------------------------------------ */
+.bolum:not([open]) {
+  display: none;
+}
+
+/* Acilan bolumun kartlardan geldigi belli olsun */
+.bolum[open] {
+  border-color: var(--accent);
+  scroll-margin-top: 12px;
+}
+
+
 .bolum > summary {
   cursor: pointer;
   padding: 14px 16px;
