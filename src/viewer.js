@@ -257,6 +257,7 @@ export async function viewerRender() {
           <div class="pano-kart-baslik">Veri Analizi &amp; Galeri</div>
           <div class="ozellik-baglantilari">
             <button class="ozellik-btn" onclick="viewerBolumAc('bolum-istatistik')">📊 İstatistikler</button>
+            <button class="ozellik-btn" onclick="viewerBolumAc('bolum-hava')">🌦️ Hava Durumu</button>
             <button class="ozellik-btn" onclick="viewerBolumAc('bolum-galeri')">📸 Foto Galerisi</button>
           </div>
         </div>
@@ -265,6 +266,11 @@ export async function viewerRender() {
       <details class="bolum" id="bolum-gecmis">
         <summary>📋 Geçmiş Kayıtlar</summary>
         <div id="gecmis-liste">Yükleniyor...</div>
+      </details>
+
+      <details class="bolum" id="bolum-hava">
+        <summary>🌦️ Hava Durumu</summary>
+        <div id="hava-panel">Yükleniyor...</div>
       </details>
 
       <details class="bolum" id="bolum-istatistik">
@@ -356,7 +362,7 @@ function viewerMetrikKartlari(durum, turBilgisi, calisan) {
              `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
-      ${kart('🌡', 'Hava Sıcaklığı',
+      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Durumu',
              `<span id="hava-deger">—</span>`,
              `<span id="hava-alt">Yükleniyor...</span>`)}
     </div>

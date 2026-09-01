@@ -121,6 +121,11 @@ async function render() {
         <div id="gecmis-liste">Yükleniyor...</div>
       </details>
 
+      <details class="bolum" id="bolum-hava">
+        <summary>🌦️ Hava Durumu</summary>
+        <div id="hava-panel">Yükleniyor...</div>
+      </details>
+
       <details class="bolum" id="bolum-istatistik">
         <summary>📊 İstatistikler</summary>
         <div id="istatistik-bolum">${istatistikHTML()}</div>
@@ -535,7 +540,7 @@ function metrikKartlari(durum, turBilgisi, calisan) {
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
 
-      ${kart('🌡', 'Hava Sıcaklığı',
+      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Durumu',
              `<span id="hava-deger">—</span>`,
              `<span id="hava-alt">Yükleniyor...</span>`)}
     </div>
@@ -564,6 +569,7 @@ function ozellikKartlari() {
         <div class="pano-kart-baslik">Veri Analizi &amp; Galeri</div>
         <div class="ozellik-baglantilari">
           ${btn('bolum-istatistik', '📊', 'İstatistikler')}
+          ${btn('bolum-hava', '🌦️', 'Hava Durumu')}
           ${btn('bolum-galeri', '📸', 'Foto Galerisi')}
         </div>
       </div>

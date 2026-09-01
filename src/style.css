@@ -1319,3 +1319,176 @@ body {
   .btn-group { gap: 5px; }
   .btn { padding: 7px 6px; font-size: 11.5px; }
 }
+
+/* ============================================================
+   HAVA DURUMU PANELI
+   Renkler tamamen mevcut degiskenlerden gelir; yeni renk sabiti
+   tanimlanmaz. Durum noktasi renklerine (--durum-*) DOKUNULMAZ.
+   ============================================================ */
+
+.hava-bos {
+  color: var(--metin-soluk);
+  font-size: 13px;
+  padding: 6px 2px;
+}
+
+/* --- Ust: guncel durum --- */
+.hava-ust {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--kenar-soluk);
+}
+
+.hava-simdi {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.hava-ikon-buyuk { font-size: 40px; line-height: 1; }
+
+.hava-derece-buyuk {
+  font-size: 34px;
+  font-weight: bold;
+  color: var(--metin);
+  line-height: 1.05;
+}
+
+.hava-durum-metin {
+  font-size: 13px;
+  color: var(--metin-soluk);
+  margin-top: 2px;
+}
+
+.hava-ozet {
+  font-size: 12.5px;
+  color: var(--metin);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hava-soluk { color: var(--metin-soluk); }
+
+/* --- Saatlik serit --- */
+/* Yatay kaydirma BU kutuda kalir; sayfa govdesi yana kaymaz. */
+.hava-serit-sar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 0 4px;
+  border-bottom: 1px solid var(--kenar-soluk);
+}
+
+.hava-serit { min-width: 100%; }
+
+.hava-satir { display: flex; }
+
+.hava-hucre {
+  width: 56px;              /* hava.js icindeki SAAT_GEN ile AYNI olmali */
+  flex: 0 0 56px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--metin-soluk);
+  padding: 2px 0;
+}
+
+.hava-satir-ikon .hava-hucre { font-size: 16px; padding: 3px 0; }
+
+.hava-satir-derece .hava-hucre {
+  color: var(--metin);
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.hava-satir-nem .hava-hucre {
+  font-size: 10.5px;
+  color: var(--metin-silik);
+}
+
+.hava-cizgi { display: block; }
+
+/* --- Detay kartlari (nem, basinc) --- */
+.hava-detay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 14px 0;
+}
+
+.hava-detay {
+  background: var(--surface-2);
+  border: 1px solid var(--kenar);
+  border-radius: var(--r-kucuk);
+  padding: 11px 13px;
+  min-width: 0;
+}
+
+.hava-detay-etiket {
+  font-size: 11px;
+  color: var(--metin-soluk);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.hava-detay-deger {
+  font-size: 19px;
+  font-weight: bold;
+  color: var(--metin);
+}
+
+.hava-detay-alt {
+  font-size: 11px;
+  color: var(--metin-silik);
+  margin-top: 3px;
+}
+
+/* --- Gunluk ozet (veri biriktikce uzar) --- */
+.hava-gunluk {
+  border-top: 1px solid var(--kenar-soluk);
+  padding-top: 4px;
+}
+
+.hava-gun {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--kenar-soluk);
+  font-size: 13px;
+}
+
+.hava-gun:last-child { border-bottom: none; }
+
+.hava-gun-bugun { background: var(--surface-2); border-radius: var(--r-kucuk); }
+
+.hava-gun-ad { flex: 1; color: var(--metin); min-width: 0; }
+.hava-gun-ikon { font-size: 15px; flex-shrink: 0; }
+
+.hava-gun-derece {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.hava-yuksek { color: var(--metin); font-weight: bold; }
+.hava-dusuk { color: var(--metin-soluk); }
+
+.hava-kaynak {
+  font-size: 10.5px;
+  color: var(--metin-silik);
+  padding-top: 12px;
+}
+
+@media (max-width: 560px) {
+  .hava-ozet { text-align: left; }
+  .hava-derece-buyuk { font-size: 30px; }
+  .hava-ikon-buyuk { font-size: 34px; }
+}
