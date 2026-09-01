@@ -18,6 +18,7 @@ import { logKaydet, loglariGetir, logHTML, ziyaretcileriGetir, ziyaretciHTML } f
 import {
   izleyicileriGetir, izleyiciEkle, izleyiciAdiDegistir, izleyiciAktiflik
 } from './izleyici.js'
+import { havaKartiniDoldur } from './hava.js'
 import { yedekIndir } from './yedek.js'
 import {
   offlineBaslat, kuyrukSayisi, kuyrukListesi, kuyruktanSil,
@@ -195,6 +196,11 @@ async function render() {
     const el = document.getElementById('olay-log-liste')
     if (el) el.innerHTML = logHTML(loglar)
   })
+
+  // Hava sıcaklığı: veriyi pg_cron zaten topladı, burası yalnızca okur.
+  // Panoyu bekletmemek için render'dan SONRA doldurulur; veri yoksa
+  // kart "—" kalır, başka hiçbir şey etkilenmez.
+  havaKartiniDoldur(aktifBolge.id)
 
   ziyaretcileriGetir().then(kayitlar => {
     const el = document.getElementById('ziyaretci-liste')
@@ -528,6 +534,10 @@ function metrikKartlari(durum, turBilgisi, calisan) {
              `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
+
+      ${kart('🌡', 'Hava Sıcaklığı',
+             `<span id="hava-deger">—</span>`,
+             `<span id="hava-alt">Yükleniyor...</span>`)}
     </div>
   `
 }

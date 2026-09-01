@@ -3,6 +3,7 @@ import { zonaVeHatlariGetir, sistemDurumuGetir, hatDurumuBelirle, sureyiFormatla
 import { gecmisKayitlariGetir, gecmisHTML } from './gecmis.js'
 import { haritaOlustur, hatlariHaritayaCiz, vanalariHaritayaCiz } from './harita.js'
 import { bolgeleriGetir } from './bolge.js'
+import { havaKartiniDoldur } from './hava.js'
 import { galeriKayitlariGetir, galeriHTML } from './galeri.js'
 import { istatistikVerileriGetir, istatistikHTML, istatistikCiz } from './istatistik.js'
 import {
@@ -294,6 +295,9 @@ export async function viewerRender() {
     if (el) el.innerHTML = galeriHTML(kayitlar)
   })
 
+  // Hava sıcaklığı — veriyi pg_cron topluyor, burası yalnızca okur.
+  havaKartiniDoldur(bolge?.id)
+
   // İstatistik açılışta hesaplanmaz; bölüm ilk açıldığında tetiklenir
   ;(() => {
     const bolum = document.getElementById('bolum-istatistik')
@@ -352,6 +356,9 @@ function viewerMetrikKartlari(durum, turBilgisi, calisan) {
              `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
+      ${kart('🌡', 'Hava Sıcaklığı',
+             `<span id="hava-deger">—</span>`,
+             `<span id="hava-alt">Yükleniyor...</span>`)}
     </div>
   `
 }
