@@ -287,9 +287,16 @@ body {
   border-color: var(--accent);
 }
 
+/* Metrik kartlari 4 sutuna ancak yeterli yer varken sigar. 1130px'in
+   altinda sutun ~226px'e duser ve "Zona 2 - Dogu Blok" gibi degerler
+   kirpilir; o yuzden ikiye inilir. (pano-ana / hat listeleri kendi
+   esiginde kalir, bu kural yalnizca metrik seridini ilgilendirir.) */
+@media (max-width: 1130px) {
+  .metrik-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ── Mobil: tek sutuna in ── */
 @media (max-width: 980px) {
-  .metrik-grid { grid-template-columns: repeat(2, 1fr); }
   .pano-ana { grid-template-columns: 1fr; }
   .hat-listesi-kaydir { max-height: none; }
 }

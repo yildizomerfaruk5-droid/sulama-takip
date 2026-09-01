@@ -40,6 +40,25 @@ export function nemYaz(n) {
   return `%${Math.round(Number(n))}`
 }
 
+/**
+ * Ciy noktasi (Magnus-Tetens). Sicaklik ve bagil nemden TUREYEN bir
+ * deger; ayrica cekilmesi gerekmez. Telefondaki hava uygulamasiyla
+ * dogrulandi: 18 °C / %48 -> 6,8 °C (uygulama "7°" diyor).
+ */
+export function ciyNoktasi(t, nem) {
+  if (t == null || nem == null || nem <= 0) return null
+  const g = Math.log(nem / 100) + (17.625 * t) / (243.04 + t)
+  return (243.04 * g) / (17.625 - g)
+}
+
+/** Sure araligini "13 sa 1 dk" olarak yazar */
+export function sureYaz(ms) {
+  if (ms == null || ms < 0) return '—'
+  const dk = Math.round(ms / 60000)
+  const sa = Math.floor(dk / 60)
+  return sa ? `${sa} sa ${dk % 60} dk` : `${dk} dk`
+}
+
 /** 1013.7 -> "1013,7 hPa" */
 export function basincYaz(b) {
   if (b == null || Number.isNaN(b)) return '—'
@@ -272,9 +291,15 @@ function gunlukOzet(kayitlar) {
  * veri SONRADAN duser; boylece hava sorgusu panonun acilmasini bekletmez.
  * Hata/veri yoklugunda kart sessizce "—" kalir.
  */
-export async function havaKartiniDoldur(bolgeId) {
+export async function havaKartiniDoldur(bolge) {
   const degerEl = document.getElementById('hava-deger')
   if (!degerEl) return
+
+  // Bolge nesnesi de kimlik de kabul edilir. Nesne verilirse gunes kutusu
+  // hava verisi HIC olmasa bile calisir (koordinat bolgeden gelir).
+  const bolgeId = typeof bolge === 'string' ? bolge : bolge?.id
+  const bolgeEnlem = typeof bolge === 'object' ? (bolge?.merkez_lat ?? null) : null
+  const bolgeBoylam = typeof bolge === 'object' ? (bolge?.merkez_lng ?? null) : null
 
   let veri = null
   try {
@@ -286,34 +311,68 @@ export async function havaKartiniDoldur(bolgeId) {
   // Bu sirada pano yeniden cizilmis olabilir — eleman hala ayakta mi?
   if (!document.body.contains(degerEl)) return
 
-  const altEl = document.getElementById('hava-alt')
-  const ikonEl = document.getElementById('hava-ikon')
+  const yaz = (id, metin) => {
+    const el = document.getElementById(id)
+    if (el) el.textContent = metin
+  }
   const panelEl = document.getElementById('hava-panel')
+
+  // ── GÜNEŞ KUTUSU ──
+  // Tamamen yerel hesap; hava verisine BAGLI DEGIL. Koordinat hava
+  // kaydindan da bolgeden de gelebilir, ikisi de yoksa kutu "—" kalir.
+  const enlem = veri?.konum?.enlem ?? bolgeEnlem
+  const boylam = veri?.konum?.boylam ?? bolgeBoylam
+  const gunes = veri?.gunes ?? gunesZamanlari(enlem, boylam, new Date())
+  if (gunes) {
+    yaz('hava-gunes', `${saatYaz(gunes.dogus)} / ${saatYaz(gunes.batis)}`)
+    const simdi = Date.now()
+    yaz('hava-gunes-alt',
+      simdi < gunes.dogus.getTime()
+        ? `Doğuşa ${sureYaz(gunes.dogus - simdi)}`
+        : simdi < gunes.batis.getTime()
+          ? `Batışa ${sureYaz(gunes.batis - simdi)}`
+          : `Gündüz ${sureYaz(gunes.batis - gunes.dogus)}`)
+  } else {
+    yaz('hava-gunes', '—')
+    yaz('hava-gunes-alt', 'Konum yok')
+  }
 
   if (!veri) {
     degerEl.textContent = '—'
-    if (altEl) altEl.textContent = 'Veri yok'
+    yaz('hava-alt', 'Veri yok')
+    yaz('hava-nem', '—');    yaz('hava-nem-alt', 'Veri yok')
+    yaz('hava-basinc', '—'); yaz('hava-basinc-alt', 'Veri yok')
     if (panelEl) panelEl.innerHTML = havaBosHTML()
     return
   }
 
   const g = veri.guncel
-  degerEl.textContent = sicaklikYaz(g.sicaklik)
-  if (ikonEl) ikonEl.textContent = havaKodu(g.kod, g.gunduz).ikon || '🌡'
+  const durum = havaKodu(g.kod, g.gunduz)
 
-  if (altEl) {
-    // Nem ve basinc kullanicinin istedigi gibi sicakligin yaninda.
-    const parcalar = []
-    if (g.nem != null) parcalar.push(`💧 ${nemYaz(g.nem)}`)
-    if (g.basincDeniz != null) parcalar.push(basincYaz(g.basincDeniz))
-    // Nem/basinc henuz yoksa (2. migration calismamis) bos birakmak yerine
-    // elimizdeki en yararli bilgiyi goster: bugunun uc degerleri.
-    if (!parcalar.length && g.bugunEnYuksek != null) {
-      parcalar.push(`↑ ${dereceKisa(g.bugunEnYuksek)} / ↓ ${dereceKisa(g.bugunEnDusuk)}`)
-    }
-    if (g.bayat) parcalar.push('(güncel değil)')
-    altEl.textContent = parcalar.length ? parcalar.join(' · ') : havaKodu(g.kod, g.gunduz).metin || '—'
+  // ── SICAKLIK KUTUSU ──
+  degerEl.textContent = sicaklikYaz(g.sicaklik)
+  yaz('hava-ikon', durum.ikon || '🌡')
+  const sicaklikAlt = []
+  if (durum.metin) sicaklikAlt.push(durum.metin)
+  if (g.bugunEnYuksek != null) {
+    sicaklikAlt.push(`↑ ${dereceKisa(g.bugunEnYuksek)} / ↓ ${dereceKisa(g.bugunEnDusuk)}`)
   }
+  if (g.bayat) sicaklikAlt.push('(güncel değil)')
+  yaz('hava-alt', sicaklikAlt.join(' · ') || '—')
+
+  // ── NEM KUTUSU ──
+  yaz('hava-nem', nemYaz(g.nem))
+  const ciy = ciyNoktasi(g.sicaklik, g.nem)
+  yaz('hava-nem-alt', ciy != null ? `Çiy noktası ${dereceKisa(ciy)}` : 'Ölçüm bekleniyor')
+
+  // ── BASINÇ KUTUSU ──
+  // Buyuk deger deniz seviyesine indirgenmis olan (telefon uygulamalariyla
+  // ayni), altta sahadaki gercek basinc. Ikisi farklidir; bkz. migration 2.
+  yaz('hava-basinc', basincYaz(g.basincDeniz))
+  yaz('hava-basinc-alt',
+    g.basinc != null
+      ? `Sahada ${basincYaz(g.basinc)}${g.rakim != null ? ` · ${Math.round(g.rakim)} m` : ''}`
+      : 'Ölçüm bekleniyor')
 
   if (panelEl) panelEl.innerHTML = havaPanelHTML(veri)
 }
@@ -435,11 +494,19 @@ export function havaPanelHTML(veri) {
     ${saatlikHTML}
 
     <div class="hava-detay-grid">
-      ${detay('Nem', nemYaz(g.nem))}
+      ${detay('Nem', nemYaz(g.nem),
+              ciyNoktasi(g.sicaklik, g.nem) != null
+                ? `Çiy noktası ${dereceKisa(ciyNoktasi(g.sicaklik, g.nem))}` : '')}
       ${detay('Basınç (deniz sev.)', basincYaz(g.basincDeniz),
               g.basinc != null
                 ? `Sahada ${basincYaz(g.basinc)}${g.rakim != null ? ` · ${Math.round(g.rakim)} m` : ''}`
                 : '')}
+      ${veri.gunes ? detay('Gün doğumu / batımı',
+              `${saatYaz(veri.gunes.dogus)} / ${saatYaz(veri.gunes.batis)}`,
+              `Gündüz ${sureYaz(veri.gunes.batis - veri.gunes.dogus)}`) : ''}
+      ${detay('Bugün', g.bugunEnYuksek != null
+                ? `${dereceKisa(g.bugunEnYuksek)} / ${dereceKisa(g.bugunEnDusuk)}` : '—',
+              'en yüksek / en düşük')}
     </div>
 
     ${gunlukHTML}

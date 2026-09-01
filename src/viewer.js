@@ -302,7 +302,7 @@ export async function viewerRender() {
   })
 
   // Hava sıcaklığı — veriyi pg_cron topluyor, burası yalnızca okur.
-  havaKartiniDoldur(bolge?.id)
+  havaKartiniDoldur(bolge)
 
   // İstatistik açılışta hesaplanmaz; bölüm ilk açıldığında tetiklenir
   ;(() => {
@@ -362,9 +362,21 @@ function viewerMetrikKartlari(durum, turBilgisi, calisan) {
              `<span id="panel-kalan" data-sure="${calisan?.hat?.varsayilan_sure_dk || ''}">--:--:--</span>`,
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
-      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Durumu',
+      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Sıcaklığı',
              `<span id="hava-deger">—</span>`,
              `<span id="hava-alt">Yükleniyor...</span>`)}
+
+      ${kart('💧', 'Nem',
+             `<span id="hava-nem">—</span>`,
+             `<span id="hava-nem-alt">Yükleniyor...</span>`)}
+
+      ${kart('🌀', 'Basınç',
+             `<span id="hava-basinc">—</span>`,
+             `<span id="hava-basinc-alt">Yükleniyor...</span>`)}
+
+      ${kart('🌅', 'Güneş',
+             `<span id="hava-gunes">—</span>`,
+             `<span id="hava-gunes-alt">Yükleniyor...</span>`)}
     </div>
   `
 }

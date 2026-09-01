@@ -205,7 +205,7 @@ async function render() {
   // Hava sıcaklığı: veriyi pg_cron zaten topladı, burası yalnızca okur.
   // Panoyu bekletmemek için render'dan SONRA doldurulur; veri yoksa
   // kart "—" kalır, başka hiçbir şey etkilenmez.
-  havaKartiniDoldur(aktifBolge.id)
+  havaKartiniDoldur(aktifBolge)
 
   ziyaretcileriGetir().then(kayitlar => {
     const el = document.getElementById('ziyaretci-liste')
@@ -540,9 +540,21 @@ function metrikKartlari(durum, turBilgisi, calisan) {
              `Geçen: <span id="panel-sayac">--:--:--</span>` +
              (calisan?.saatAralik && calisan.saatAralik !== '—' ? ` • ${calisan.saatAralik}` : ''))}
 
-      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Durumu',
+      ${kart('<span id="hava-ikon">🌡</span>', 'Hava Sıcaklığı',
              `<span id="hava-deger">—</span>`,
              `<span id="hava-alt">Yükleniyor...</span>`)}
+
+      ${kart('💧', 'Nem',
+             `<span id="hava-nem">—</span>`,
+             `<span id="hava-nem-alt">Yükleniyor...</span>`)}
+
+      ${kart('🌀', 'Basınç',
+             `<span id="hava-basinc">—</span>`,
+             `<span id="hava-basinc-alt">Yükleniyor...</span>`)}
+
+      ${kart('🌅', 'Güneş',
+             `<span id="hava-gunes">—</span>`,
+             `<span id="hava-gunes-alt">Yükleniyor...</span>`)}
     </div>
   `
 }
