@@ -65,6 +65,13 @@ export function basincYaz(b) {
   return `${Number(b).toFixed(1).replace('.', ',')} hPa`
 }
 
+/** 2.4 -> "2,4 mm" ; 0 -> "0 mm" */
+export function yagisYaz(mm) {
+  if (mm == null || Number.isNaN(mm)) return '—'
+  const v = Number(mm)
+  return v === 0 ? '0 mm' : `${v.toFixed(1).replace('.', ',')} mm`
+}
+
 /** 7.4 -> "7,4 km/h" */
 export function hizYaz(kmh) {
   if (kmh == null || Number.isNaN(kmh)) return '—'
@@ -81,13 +88,17 @@ export function gorunurlukYaz(m) {
 // okunurluk kazandirmiyor.
 const YONLER = ['Kuzey', 'Kuzeydoğu', 'Doğu', 'Güneydoğu',
                 'Güney', 'Güneybatı', 'Batı', 'Kuzeybatı']
+// Ayrilma hali ayri tutuluyor: yon adlari cins isim, kesme isareti almaz
+// ("Kuzeyden", "Kuzey'dan" DEGIL) ve unlu uyumu yone gore degisiyor.
+const YON_DEN = ['Kuzeyden', 'Kuzeydoğudan', 'Doğudan', 'Güneydoğudan',
+                 'Güneyden', 'Güneybatıdan', 'Batıdan', 'Kuzeybatıdan']
 const YON_OK = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']  // ruzgarin GITTIGI yon
 
-/** 68 -> { ad: 'Doğu', ok: '←' } */
+/** 68 -> { ad: 'Doğu', den: 'Doğudan', ok: '←' } */
 export function ruzgarYonu(derece) {
   if (derece == null || Number.isNaN(derece)) return null
   const i = Math.round(Number(derece) / 45) % 8
-  return { ad: YONLER[i], ok: YON_OK[i] }
+  return { ad: YONLER[i], den: YON_DEN[i], ok: YON_OK[i] }
 }
 
 // Dunya Saglik Orgutu esikleri
@@ -193,6 +204,10 @@ function gunduzMu(an, enlem, boylam) {
 // baslar, kolon bulunamazsa bir alt kademeye duser. Boylece kodun ve
 // migration'larin calistirilma SIRASI onemli olmaz.
 const KOLONLAR = [
+  // 4. asama: yagis ihtimali ve miktari
+  'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, ' +
+  'ruzgar_hiz_kmh, ruzgar_yon, ruzgar_hamle_kmh, uv_index, gorunurluk_m, ' +
+  'yagis_ihtimal_yuzde, yagis_mm, rakim_m, enlem, boylam',
   // 3. asama: ruzgar, uv, gorunurluk
   'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, ' +
   'ruzgar_hiz_kmh, ruzgar_yon, ruzgar_hamle_kmh, uv_index, gorunurluk_m, ' +
@@ -225,7 +240,7 @@ export async function havaPanoVerisi(bolgeId) {
     if (!/does not exist|column/i.test(error.message || '')) break
     if (kademe < KOLONLAR.length - 1) {
       console.warn(`Hava: bazı kolonlar yok, daha dar kümeyle deneniyor ` +
-                   `(sql/supabase_migration_hava_durumu_${3 - kademe}.sql çalıştırılmalı).`)
+                   `(sql/supabase_migration_hava_durumu_${KOLONLAR.length - kademe}.sql çalıştırılmalı).`)
     }
   }
 
@@ -281,6 +296,13 @@ export function havaVeriIsle(data) {
       ruzgarHamle: son.ruzgar_hamle_kmh != null ? Number(son.ruzgar_hamle_kmh) : null,
       uv: son.uv_index != null ? Number(son.uv_index) : null,
       gorunurluk: son.gorunurluk_m != null ? Number(son.gorunurluk_m) : null,
+      yagisIhtimal: son.yagis_ihtimal_yuzde != null ? Number(son.yagis_ihtimal_yuzde) : null,
+      // Gecmis 24 saatte tarlaya DUSEN su. Sulama karari icin ihtimalden
+      // daha dogrudan bir bilgi: "dogadan ne kadar su aldi?"
+      son24Yagis: pencereToplam(kayitlar, simdi - 86400000, simdi),
+      // Ilerideki 24 saatin en yuksek ihtimali ve beklenen toplami
+      sonraki24Ihtimal: pencereEnBuyuk(kayitlar, simdi, simdi + 86400000, 'yagis_ihtimal_yuzde'),
+      sonraki24Yagis: pencereToplam(kayitlar, simdi, simdi + 86400000),
       bugunEnYuksekUv: enBuyuk('uv_index'),
       bugunEnYuksekHamle: enBuyuk('ruzgar_hamle_kmh'),
       rakim: son.rakim_m != null ? Number(son.rakim_m) : null,
@@ -297,6 +319,20 @@ export function havaVeriIsle(data) {
   }
 }
 
+/** Verilen zaman araligindaki toplam yagis (mm) */
+function pencereToplam(kayitlar, bas, son) {
+  const d = kayitlar.filter(k => k.an.getTime() > bas && k.an.getTime() <= son
+                              && k.yagis_mm != null)
+  return d.length ? d.reduce((t, k) => t + Number(k.yagis_mm), 0) : null
+}
+
+/** Verilen zaman araligindaki en buyuk deger */
+function pencereEnBuyuk(kayitlar, bas, son, alan) {
+  const d = kayitlar.filter(k => k.an.getTime() > bas && k.an.getTime() <= son
+                              && k[alan] != null).map(k => Number(k[alan]))
+  return d.length ? Math.max(...d) : null
+}
+
 /** Su anki saatten ileriye dogru en fazla 24 saat (tahmin seridi) */
 function saatlikSerit(kayitlar, simdi, enlem, boylam) {
   const saatBasi = new Date(simdi)
@@ -308,6 +344,7 @@ function saatlikSerit(kayitlar, simdi, enlem, boylam) {
       an: k.an,
       sicaklik: Number(k.sicaklik_c),
       nem: k.nem_yuzde != null ? Number(k.nem_yuzde) : null,
+      yagisIhtimal: k.yagis_ihtimal_yuzde != null ? Number(k.yagis_ihtimal_yuzde) : null,
       kod: k.hava_kodu != null ? Number(k.hava_kodu) : null,
       gunduz: gunduzMu(k.an, enlem, boylam)
     }))
@@ -494,10 +531,15 @@ export function havaPanelHTML(veri) {
   const durum = havaKodu(g.kod, g.gunduz)
   const gen = veri.saatlik.length * SAAT_GEN
 
+  // Yagis satiri yalnizca pencerede yagis BEKLENIYORSA cizilir. Kurak bir
+  // gunde 24 tane "%0" gostermek serit yuksekligini bosuna buyutur;
+  // bilgi kaybolmaz, "Yagis ihtimali" detay karti her zaman durur.
+  const yagisBekleniyor = veri.saatlik.some(s => (s.yagisIhtimal || 0) > 0)
+
   const saatlikHTML = veri.saatlik.length ? `
     <div class="hava-serit-baslik">
       Saatlik tahmin
-      <span>— sıcaklık eğrisi ve <b>bağıl nem</b> (yağış ihtimali değil)</span>
+      <span>— sıcaklık eğrisi ve <b>bağıl nem</b>${yagisBekleniyor ? ', 💧 yağış ihtimali' : ''}</span>
     </div>
     <div class="hava-serit-sar">
       <div class="hava-serit" style="width:${gen}px">
@@ -523,6 +565,12 @@ export function havaPanelHTML(veri) {
               <span>${nemYaz(s.nem)}</span>
             </div>`).join('')}
         </div>
+        ${yagisBekleniyor ? `
+        <div class="hava-satir hava-satir-yagis">
+          ${veri.saatlik.map(s =>
+            `<div class="hava-hucre${(s.yagisIhtimal || 0) > 0 ? ' hava-yagis-var' : ''}"
+              >${(s.yagisIhtimal || 0) > 0 ? `💧${nemYaz(s.yagisIhtimal)}` : ''}</div>`).join('')}
+        </div>` : ''}
       </div>
     </div>` : ''
 
@@ -591,6 +639,11 @@ export function havaPanelHTML(veri) {
       ${detay('Rüzgâr', hizYaz(g.ruzgar), ruzgarAlt(g))}
       ${detay('UV', uvYaz(g.uv), uvAlt(g))}
       ${detay('Görünürlük', gorunurlukYaz(g.gorunurluk))}
+      ${detay('Yağış ihtimali',
+              g.sonraki24Ihtimal != null ? nemYaz(g.sonraki24Ihtimal) : null,
+              '24 saat içinde en yüksek')}
+      ${detay('Düşen yağış', g.son24Yagis != null ? yagisYaz(g.son24Yagis) : null,
+              `son 24 saat${g.sonraki24Yagis ? ` · 24 saatte ${yagisYaz(g.sonraki24Yagis)} bekleniyor` : ''}`)}
     </div>
 
     ${gunlukHTML}
@@ -605,7 +658,7 @@ export function havaPanelHTML(veri) {
 function ruzgarAlt(g) {
   const p = []
   const yon = ruzgarYonu(g.ruzgarYon)
-  if (yon) p.push(`${yon.ad}'dan ${yon.ok}`)
+  if (yon) p.push(`${yon.den} ${yon.ok}`)
   // Hamle, fiskiye dagilimini bozan asil etken; ortalamadan ayri gosterilir.
   if (g.ruzgarHamle != null) p.push(`hamle ${hizYaz(g.ruzgarHamle)}`)
   return p.join(' · ')

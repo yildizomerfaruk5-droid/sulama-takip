@@ -1550,3 +1550,13 @@ body {
   .hava-derece-buyuk { font-size: 30px; }
   .hava-ikon-buyuk { font-size: 34px; }
 }
+
+/* Yagis ihtimali satiri. Nem cubugundan ayri dursun diye damla SADECE
+   burada kullanilir — anlami dogru: yagis olasiligi. */
+.hava-satir-yagis .hava-hucre {
+  font-size: 10.5px;
+  color: var(--metin-silik);
+  padding-top: 4px;
+}
+
+.hava-satir-yagis .hava-yagis-var { color: var(--info); font-weight: bold; }
