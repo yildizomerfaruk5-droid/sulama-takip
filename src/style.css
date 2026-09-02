@@ -1421,9 +1421,12 @@ body {
 .hava-cizgi { display: block; }
 
 /* --- Detay kartlari (nem, basinc) --- */
+/* 7 detay karti var. 150px'lik esikte sutun ~164px'e dusup etiketler
+   ("Basinc (deniz sev.)") iki satira kiriliyordu; 250px'te masaustunde
+   4 sutun olup rahat nefes aliyor. */
 .hava-detay-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 10px;
   padding: 14px 0;
 }

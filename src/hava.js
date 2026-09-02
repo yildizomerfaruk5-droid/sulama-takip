@@ -65,6 +65,49 @@ export function basincYaz(b) {
   return `${Number(b).toFixed(1).replace('.', ',')} hPa`
 }
 
+/** 7.4 -> "7,4 km/h" */
+export function hizYaz(kmh) {
+  if (kmh == null || Number.isNaN(kmh)) return '—'
+  return `${Number(kmh).toFixed(1).replace('.', ',')} km/h`
+}
+
+/** 41560 (metre) -> "41,6 km" */
+export function gorunurlukYaz(m) {
+  if (m == null || Number.isNaN(m)) return '—'
+  return `${(Number(m) / 1000).toFixed(1).replace('.', ',')} km`
+}
+
+// Ruzgarin GELDIGI yon. 8 ana yon yeterli; 16'ya bolmek panoda
+// okunurluk kazandirmiyor.
+const YONLER = ['Kuzey', 'Kuzeydoğu', 'Doğu', 'Güneydoğu',
+                'Güney', 'Güneybatı', 'Batı', 'Kuzeybatı']
+const YON_OK = ['↓', '↙', '←', '↖', '↑', '↗', '→', '↘']  // ruzgarin GITTIGI yon
+
+/** 68 -> { ad: 'Doğu', ok: '←' } */
+export function ruzgarYonu(derece) {
+  if (derece == null || Number.isNaN(derece)) return null
+  const i = Math.round(Number(derece) / 45) % 8
+  return { ad: YONLER[i], ok: YON_OK[i] }
+}
+
+// Dunya Saglik Orgutu esikleri
+/** 7.25 -> "Yüksek" */
+export function uvSeviye(uv) {
+  if (uv == null || Number.isNaN(uv)) return null
+  const u = Number(uv)
+  if (u < 3) return 'Düşük'
+  if (u < 6) return 'Orta'
+  if (u < 8) return 'Yüksek'
+  if (u < 11) return 'Çok yüksek'
+  return 'Aşırı'
+}
+
+/** 1.15 -> "1,2" */
+export function uvYaz(uv) {
+  if (uv == null || Number.isNaN(uv)) return '—'
+  return Number(uv).toFixed(1).replace('.', ',')
+}
+
 // ─────────────────────────────────────────────────────────────
 // WMO HAVA KODLARI
 // Open-Meteo weather_code alani. Tam liste degil; gruplandirilmis.
@@ -146,9 +189,19 @@ function gunduzMu(an, enlem, boylam) {
  * Panonun ihtiyaci olan her seyi TEK sorguda getirir.
  * Pencere: son 7 gun + ileriye dogru elde ne varsa (tahmin).
  */
-const KOLONLAR_TAM = 'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, rakim_m, enlem, boylam'
-// 1. asama migration'i calisip 2.'si HENUZ calismamissa yalnizca bunlar vardir.
-const KOLONLAR_TEMEL = 'zaman, sicaklik_c, rakim_m, enlem, boylam'
+// Kolon kumeleri migration asamalarina karsilik gelir. Sorgu en genisten
+// baslar, kolon bulunamazsa bir alt kademeye duser. Boylece kodun ve
+// migration'larin calistirilma SIRASI onemli olmaz.
+const KOLONLAR = [
+  // 3. asama: ruzgar, uv, gorunurluk
+  'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, ' +
+  'ruzgar_hiz_kmh, ruzgar_yon, ruzgar_hamle_kmh, uv_index, gorunurluk_m, ' +
+  'rakim_m, enlem, boylam',
+  // 2. asama: nem, basinc, hava kodu
+  'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, rakim_m, enlem, boylam',
+  // 1. asama: yalnizca sicaklik
+  'zaman, sicaklik_c, rakim_m, enlem, boylam'
+]
 
 export async function havaPanoVerisi(bolgeId) {
   if (!bolgeId) return null
@@ -163,15 +216,17 @@ export async function havaPanoVerisi(bolgeId) {
     .order('zaman')
     .limit(2000)
 
-  let { data, error } = await sorgu(KOLONLAR_TAM)
-
-  // Nem/basinc kolonlari yoksa (2. asama migration'i henuz calistirilmamis)
-  // sicaklikla yetin. Boylece kod ile migration'in calistirilma SIRASI
-  // onemli olmaz: kart bos kalmak yerine elindeki veriyi gosterir.
-  if (error && /nem_yuzde|basinc_hpa|basinc_deniz_hpa|hava_kodu/.test(error.message || '')) {
-    console.warn('Hava: nem/basınç kolonları yok, sıcaklıkla devam ediliyor. ' +
-                 'sql/supabase_migration_hava_durumu_2.sql çalıştırılmalı.')
-    ;({ data, error } = await sorgu(KOLONLAR_TEMEL))
+  let data = null
+  let error = null
+  for (let kademe = 0; kademe < KOLONLAR.length; kademe++) {
+    ;({ data, error } = await sorgu(KOLONLAR[kademe]))
+    if (!error) break
+    // "column ... does not exist" -> bir alt kademeyi dene.
+    if (!/does not exist|column/i.test(error.message || '')) break
+    if (kademe < KOLONLAR.length - 1) {
+      console.warn(`Hava: bazı kolonlar yok, daha dar kümeyle deneniyor ` +
+                   `(sql/supabase_migration_hava_durumu_${3 - kademe}.sql çalıştırılmalı).`)
+    }
   }
 
   if (error) {
@@ -207,6 +262,13 @@ export function havaVeriIsle(data) {
   const bugun = kayitlar.filter(k => gunAnahtari(k.an) === bugunAnahtar && k.sicaklik_c != null)
   const bugunSic = bugun.map(k => Number(k.sicaklik_c))
 
+  // UV gece 0'dir; "su anki UV" tek basina yaniltici olur. Gunun zirvesi
+  // gerekli. Ruzgar hamlesi icin de ayni sey gecerli.
+  const enBuyuk = alan => {
+    const d = bugun.map(k => k[alan]).filter(v => v != null).map(Number)
+    return d.length ? Math.max(...d) : null
+  }
+
   return {
     guncel: {
       sicaklik: Number(son.sicaklik_c),
@@ -214,6 +276,13 @@ export function havaVeriIsle(data) {
       basinc: son.basinc_hpa != null ? Number(son.basinc_hpa) : null,
       basincDeniz: son.basinc_deniz_hpa != null ? Number(son.basinc_deniz_hpa) : null,
       kod: son.hava_kodu != null ? Number(son.hava_kodu) : null,
+      ruzgar: son.ruzgar_hiz_kmh != null ? Number(son.ruzgar_hiz_kmh) : null,
+      ruzgarYon: son.ruzgar_yon != null ? Number(son.ruzgar_yon) : null,
+      ruzgarHamle: son.ruzgar_hamle_kmh != null ? Number(son.ruzgar_hamle_kmh) : null,
+      uv: son.uv_index != null ? Number(son.uv_index) : null,
+      gorunurluk: son.gorunurluk_m != null ? Number(son.gorunurluk_m) : null,
+      bugunEnYuksekUv: enBuyuk('uv_index'),
+      bugunEnYuksekHamle: enBuyuk('ruzgar_hamle_kmh'),
       rakim: son.rakim_m != null ? Number(son.rakim_m) : null,
       zaman: son.an,
       gunduz: gunduzMu(son.an, enlem, boylam),
@@ -448,7 +517,10 @@ export function havaPanelHTML(veri) {
       </div>
     </div>` : ''
 
-  const detay = (etiket, deger, alt = '') => `
+  // Degeri olmayan kart HIC cizilmez. Ornegin 3. asama migration'i henuz
+  // calistirilmamissa Ruzgar/UV/Gorunurluk kartlari uc tane bos "—" olarak
+  // durmak yerine yok olur; migration calisinca kendiliginden belirirler.
+  const detay = (etiket, deger, alt = '') => (deger == null || deger === '—') ? '' : `
     <div class="hava-detay">
       <div class="hava-detay-etiket">${etiket}</div>
       <div class="hava-detay-deger">${deger}</div>
@@ -507,6 +579,9 @@ export function havaPanelHTML(veri) {
       ${detay('Bugün', g.bugunEnYuksek != null
                 ? `${dereceKisa(g.bugunEnYuksek)} / ${dereceKisa(g.bugunEnDusuk)}` : '—',
               'en yüksek / en düşük')}
+      ${detay('Rüzgâr', hizYaz(g.ruzgar), ruzgarAlt(g))}
+      ${detay('UV', uvYaz(g.uv), uvAlt(g))}
+      ${detay('Görünürlük', gorunurlukYaz(g.gorunurluk))}
     </div>
 
     ${gunlukHTML}
@@ -515,6 +590,25 @@ export function havaPanelHTML(veri) {
       Kaynak: Open-Meteo · saat başı otomatik kaydedilir
     </div>
   `
+}
+
+/** Ruzgar kartinin alt satiri: geldigi yon + ani hamle */
+function ruzgarAlt(g) {
+  const p = []
+  const yon = ruzgarYonu(g.ruzgarYon)
+  if (yon) p.push(`${yon.ad}'dan ${yon.ok}`)
+  // Hamle, fiskiye dagilimini bozan asil etken; ortalamadan ayri gosterilir.
+  if (g.ruzgarHamle != null) p.push(`hamle ${hizYaz(g.ruzgarHamle)}`)
+  return p.join(' · ')
+}
+
+/** UV kartinin alt satiri: seviye + gunun zirvesi (gece UV 0 oldugu icin) */
+function uvAlt(g) {
+  const p = []
+  const s = uvSeviye(g.uv)
+  if (s) p.push(s)
+  if (g.bugunEnYuksekUv != null) p.push(`bugün en yüksek ${uvYaz(g.bugunEnYuksekUv)}`)
+  return p.join(' · ')
 }
 
 function gunAdi(d) {
