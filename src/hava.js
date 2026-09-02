@@ -495,6 +495,10 @@ export function havaPanelHTML(veri) {
   const gen = veri.saatlik.length * SAAT_GEN
 
   const saatlikHTML = veri.saatlik.length ? `
+    <div class="hava-serit-baslik">
+      Saatlik tahmin
+      <span>— sıcaklık eğrisi ve <b>bağıl nem</b> (yağış ihtimali değil)</span>
+    </div>
     <div class="hava-serit-sar">
       <div class="hava-serit" style="width:${gen}px">
         <div class="hava-satir">
@@ -511,8 +515,13 @@ export function havaPanelHTML(veri) {
         </div>
         ${sicaklikCizgisi(veri.saatlik)}
         <div class="hava-satir hava-satir-nem">
-          ${veri.saatlik.map(s =>
-            `<div class="hava-hucre">💧${nemYaz(s.nem)}</div>`).join('')}
+          ${veri.saatlik.map(s => `
+            <div class="hava-hucre hava-nem-hucre">
+              <div class="hava-nem-cubuk" title="Bağıl nem ${nemYaz(s.nem)}">
+                <i style="height:${s.nem != null ? Math.max(2, Math.min(100, s.nem)) : 0}%"></i>
+              </div>
+              <span>${nemYaz(s.nem)}</span>
+            </div>`).join('')}
         </div>
       </div>
     </div>` : ''

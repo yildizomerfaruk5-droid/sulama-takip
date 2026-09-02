@@ -1388,7 +1388,7 @@ body {
 .hava-serit-sar {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px 0 4px;
+  padding: 8px 0 4px;
   border-bottom: 1px solid var(--kenar-soluk);
 }
 
@@ -1413,10 +1413,58 @@ body {
   font-size: 13px;
 }
 
+/* Nem satiri: damla simgesi KULLANILMAZ. Hava uygulamalarinda damla
+   yagis ihtimali demektir; burada bagil nem gosteriliyor ve ikisi
+   karistiriliyordu. Dolgu cubugu degeri "seviye" olarak okutur. */
 .hava-satir-nem .hava-hucre {
   font-size: 10.5px;
   color: var(--metin-silik);
 }
+
+.hava-nem-hucre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding-top: 5px;
+}
+
+.hava-nem-cubuk {
+  width: 20px;
+  height: 16px;
+  background: var(--surface-3);
+  border: 1px solid var(--kenar);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+/* Yukseklik satir ici stille verilir (nem yuzdesi) */
+.hava-nem-cubuk i {
+  display: block;
+  width: 100%;
+  background: var(--info);
+}
+
+.hava-serit-baslik {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  color: var(--metin-soluk);
+  text-transform: uppercase;
+  padding-top: 14px;
+}
+
+/* Aciklama kismi vurgusuz: baslik gurultuye donusmesin */
+.hava-serit-baslik span {
+  font-weight: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--metin-silik);
+}
+
+.hava-serit-baslik b { color: var(--metin-soluk); }
 
 .hava-cizgi { display: block; }
 
