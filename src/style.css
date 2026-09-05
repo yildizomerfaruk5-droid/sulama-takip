@@ -1560,3 +1560,22 @@ body {
 }
 
 .hava-satir-yagis .hava-yagis-var { color: var(--info); font-weight: bold; }
+
+/* Su dengesi karti: detay izgarasinin en onemlisi, iki sutun kaplar. */
+.hava-detay-genis { grid-column: span 2; }
+
+@media (max-width: 560px) {
+  .hava-detay-genis { grid-column: span 1; }
+}
+
+/* Su acigi (negatif denge) uyari renginde — hata degil, dikkat cekmeli */
+.hava-acik-deger { color: var(--warning); }
+
+/* Gunluk listede yagis sutunu */
+.hava-gun-yagis {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--info);
+  min-width: 58px;
+  text-align: right;
+}

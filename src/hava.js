@@ -204,6 +204,10 @@ function gunduzMu(an, enlem, boylam) {
 // baslar, kolon bulunamazsa bir alt kademeye duser. Boylece kodun ve
 // migration'larin calistirilma SIRASI onemli olmaz.
 const KOLONLAR = [
+  // 5. asama: ET0 ve VPD
+  'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, ' +
+  'ruzgar_hiz_kmh, ruzgar_yon, ruzgar_hamle_kmh, uv_index, gorunurluk_m, ' +
+  'yagis_ihtimal_yuzde, yagis_mm, et0_mm, vpd_kpa, rakim_m, enlem, boylam',
   // 4. asama: yagis ihtimali ve miktari
   'zaman, sicaklik_c, nem_yuzde, basinc_hpa, basinc_deniz_hpa, hava_kodu, ' +
   'ruzgar_hiz_kmh, ruzgar_yon, ruzgar_hamle_kmh, uv_index, gorunurluk_m, ' +
@@ -249,7 +253,31 @@ export async function havaPanoVerisi(bolgeId) {
     console.warn('Hava durumu okunamadı:', error.message)
     return null
   }
-  return havaVeriIsle(data)
+
+  return havaVeriIsle(data, await gunlukGetir(bolgeId))
+}
+
+/**
+ * Gunluk tahmin tablosu (5. asama). Tablo yoksa null doner ve gunluk
+ * ozet eskisi gibi saatlik satirlardan turetilir — pano bozulmaz.
+ */
+async function gunlukGetir(bolgeId) {
+  const bas = new Date(Date.now() - GUNLUK_GERI * 86400000)
+  const { data, error } = await supabase
+    .from('hava_durumu_gunluk')
+    .select('tarih, hava_kodu, sicaklik_max, sicaklik_min, yagis_mm, ' +
+            'yagis_ihtimal_max, et0_mm, ruzgar_max_kmh, uv_max, gun_dogumu, gun_batimi')
+    .eq('bolge_id', bolgeId)
+    .gte('tarih', bas.toISOString().slice(0, 10))
+    .order('tarih')
+    .limit(60)
+
+  if (error) {
+    console.warn('Hava: günlük tahmin tablosu yok, günlük özet saatlik ' +
+                 'veriden türetiliyor (sql/supabase_migration_hava_durumu_5.sql).')
+    return null
+  }
+  return data && data.length ? data : null
 }
 
 /**
@@ -257,7 +285,7 @@ export async function havaPanoVerisi(bolgeId) {
  * Sorgudan AYRI tutuldu: veritabani olmadan gercek satirlarla
  * test edilebilsin diye.
  */
-export function havaVeriIsle(data) {
+export function havaVeriIsle(data, gunlukSatirlar = null) {
   if (!data || data.length === 0) return null
 
   const kayitlar = data.map(k => ({ ...k, an: new Date(k.zaman) }))
@@ -313,10 +341,73 @@ export function havaVeriIsle(data) {
       bugunEnDusuk: bugunSic.length ? Math.min(...bugunSic) : null
     },
     saatlik: saatlikSerit(kayitlar, simdi, enlem, boylam),
-    gunluk: gunlukOzet(kayitlar),
-    gunes: gunesZamanlari(enlem, boylam, new Date()),
+    // Gunluk tablo varsa ONDAN gelir (15 gun ileri, toplamlari Open-Meteo
+    // hesaplamis). Yoksa eskisi gibi saatlik satirlardan turetilir.
+    gunluk: gunlukSatirlar ? gunlukTablodan(gunlukSatirlar) : gunlukOzet(kayitlar),
+    suDengesi: suDengesiHesapla(gunlukSatirlar),
+    // Gunes saatini once API'den al (gunluk tabloda), yoksa yerel hesap.
+    // Ikisi Kayseri'de 1 dakika icinde ortusuyor; API olcut kabul edilir.
+    gunes: gunesSaatleri(gunlukSatirlar, enlem, boylam),
     konum: { enlem, boylam }
   }
+}
+
+/** Gunluk tablo satirlarini panelin bicimine cevirir */
+function gunlukTablodan(satirlar) {
+  return satirlar.map(g => ({
+    // 'YYYY-MM-DD' -> yerel gun. new Date('2026-09-05') UTC gece yarisi
+    // demektir ve saat dilimine gore bir onceki gune kayabilir; bu yuzden
+    // parcalardan kuruluyor.
+    tarih: new Date(...g.tarih.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v))),
+    enYuksek: g.sicaklik_max != null ? Number(g.sicaklik_max) : null,
+    enDusuk: g.sicaklik_min != null ? Number(g.sicaklik_min) : null,
+    yagis: g.yagis_mm != null ? Number(g.yagis_mm) : null,
+    yagisIhtimal: g.yagis_ihtimal_max != null ? Number(g.yagis_ihtimal_max) : null,
+    et0: g.et0_mm != null ? Number(g.et0_mm) : null,
+    kod: g.hava_kodu != null ? Number(g.hava_kodu) : null
+  }))
+}
+
+/**
+ * SU DENGESI = dusen yagis − buharlasan su (ET0).
+ * Negatif deger tarlanin acigi demektir.
+ * Gecmis 7 gun olculen, sonraki 7 gun beklenendir.
+ */
+function suDengesiHesapla(satirlar) {
+  if (!satirlar || !satirlar.length) return null
+  const bugun = yerelGunMetni(new Date())
+
+  const topla = (suzgec) => {
+    const d = satirlar.filter(suzgec)
+    if (!d.length) return null
+    const et0 = d.reduce((t, g) => t + (g.et0_mm != null ? Number(g.et0_mm) : 0), 0)
+    const yagis = d.reduce((t, g) => t + (g.yagis_mm != null ? Number(g.yagis_mm) : 0), 0)
+    return { gun: d.length, et0, yagis, denge: yagis - et0 }
+  }
+
+  // Ileri pencere de 7 gun: "son 7 gun" ile karsilastirilabilir olsun.
+  // Tabloda 15 gun var ama 16 gunluk bir toplam gecmisle kiyaslanamaz.
+  const yediSonra = yerelGunMetni(new Date(Date.now() + 7 * 86400000))
+
+  return {
+    gecmis: topla(g => g.tarih < bugun),
+    gelecek: topla(g => g.tarih >= bugun && g.tarih < yediSonra)
+  }
+}
+
+/** Yerel gunu 'YYYY-MM-DD' olarak verir (UTC'ye kaymadan) */
+function yerelGunMetni(d) {
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** Gunes saatleri: once gunluk tablodaki API degeri, sonra yerel hesap */
+function gunesSaatleri(satirlar, enlem, boylam) {
+  const bugun = satirlar?.find(g => g.tarih === yerelGunMetni(new Date()))
+  if (bugun?.gun_dogumu && bugun?.gun_batimi) {
+    return { dogus: new Date(bugun.gun_dogumu), batis: new Date(bugun.gun_batimi) }
+  }
+  return gunesZamanlari(enlem, boylam, new Date())
 }
 
 /** Verilen zaman araligindaki toplam yagis (mm) */
@@ -584,13 +675,24 @@ export function havaPanelHTML(veri) {
       ${alt ? `<div class="hava-detay-alt">${alt}</div>` : ''}
     </div>`
 
-  const gunlukHTML = veri.gunluk.length ? `
+  // Listede dunden itibaren gosterilir. Daha eski gunler tabloda durur
+  // ve su dengesi hesabina girer, ama listeye konsaydi bugunu ve 15
+  // gunluk tahmini asagi iterdi.
+  const dun = new Date(Date.now() - 86400000)
+  dun.setHours(0, 0, 0, 0)
+  const gosterilecek = veri.gunluk.filter(g => g.tarih >= dun)
+
+  const gunlukHTML = gosterilecek.length ? `
     <div class="hava-gunluk">
-      ${veri.gunluk.map(gun => {
+      ${gosterilecek.map(gun => {
         const bugun = gunAnahtari(gun.tarih) === gunAnahtari(new Date())
         return `
         <div class="hava-gun${bugun ? ' hava-gun-bugun' : ''}">
           <div class="hava-gun-ad">${gunAdi(gun.tarih)}</div>
+          <div class="hava-gun-yagis">${
+            gun.yagis > 0 ? `💧${yagisYaz(gun.yagis)}`
+            : gun.yagisIhtimal > 0 ? `<span class="hava-soluk">%${Math.round(gun.yagisIhtimal)}</span>`
+            : ''}</div>
           <div class="hava-gun-ikon">${havaKodu(gun.kod, true).ikon || '·'}</div>
           <div class="hava-gun-derece">
             <span class="hava-yuksek">${dereceKisa(gun.enYuksek)}</span>
@@ -623,6 +725,7 @@ export function havaPanelHTML(veri) {
     ${saatlikHTML}
 
     <div class="hava-detay-grid">
+      ${suDengesiKarti(veri.suDengesi)}
       ${detay('Nem', nemYaz(g.nem),
               ciyNoktasi(g.sicaklik, g.nem) != null
                 ? `Çiy noktası ${dereceKisa(ciyNoktasi(g.sicaklik, g.nem))}` : '')}
@@ -671,6 +774,29 @@ function uvAlt(g) {
   if (s) p.push(s)
   if (g.bugunEnYuksekUv != null) p.push(`bugün en yüksek ${uvYaz(g.bugunEnYuksekUv)}`)
   return p.join(' · ')
+}
+
+/**
+ * Su dengesi karti. Aci NEGATIF gosterilir: "-30,4 mm" = tarla bu kadar
+ * su borclu. Deger mm cinsindendir; sulama SURESINE cevrilmez cunku
+ * fiskiyenin saatte kac mm verdigi (uygulama hizi) sistemde kayitli
+ * degil. O deger girilirse cevrim eklenebilir.
+ */
+function suDengesiKarti(d) {
+  if (!d || !d.gecmis) return ''
+  const gec = d.gecmis
+  const isaret = gec.denge > 0 ? '+' : ''
+  const alt = [`Buharlaşma ${yagisYaz(gec.et0)} · Yağış ${yagisYaz(gec.yagis)}`]
+  if (d.gelecek) {
+    alt.push(`önümüzdeki ${d.gelecek.gun} günde ${yagisYaz(Math.abs(d.gelecek.denge))} daha bekleniyor`)
+  }
+  return `
+    <div class="hava-detay hava-detay-genis">
+      <div class="hava-detay-etiket">Su dengesi · son ${gec.gun} gün</div>
+      <div class="hava-detay-deger ${gec.denge < 0 ? 'hava-acik-deger' : ''}"
+        >${isaret}${yagisYaz(gec.denge)}</div>
+      <div class="hava-detay-alt">${alt.join(' · ')}</div>
+    </div>`
 }
 
 function gunAdi(d) {
